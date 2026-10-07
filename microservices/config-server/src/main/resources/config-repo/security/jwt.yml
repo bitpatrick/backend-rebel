@@ -1,0 +1,5 @@
+# curl -u root:s3cr3t -X POST http://localhost:8888/encrypt -d "3cfa76ef14937c1c0ea519f8fc057a80fcd04a7420f8e8bcd0a7567c272e007b"
+security.jwt.secret-key: "{cipher}{secret:jwt}1b6f4ff2f9d5f7524b13ccd98192221fad68e89327ec7d9a15e87cd8b2d8d11fbc9b0c432c2c0937b6b1f2544b41a344d3b544e61834fd41590256c58c1ad402e176f0b8882ae471466fbc4f95c4c6db24e322785c0e3b7b221cdbac33b30f70"
+
+# Token duration in milliseconds
+security.jwt.expiration-time: 3600000

@@ -1,0 +1,53 @@
+spring:
+
+  # Spring Cloud Stream
+  cloud:
+
+    function:
+      definition: teacherCreatedEvent
+
+    stream:
+      bindings:
+
+        teacherCreatedEvent-in-0:
+
+          # Topic/queue logica
+          destination: teacher-events
+
+          # Consumer group
+          group: teacher-events-group
+
+          consumer:
+
+            # Partizionamento lato Spring Cloud Stream
+            partitioned: false
+
+            # Indice dell'istanza del consumer
+            instance-index: ${INSTANCE_INDEX:0}
+
+            # Numero massimo di tentativi
+            maxAttempts: 3
+
+            # Attesa iniziale: 500 ms
+            backOffInitialInterval: 500
+
+            # Attesa massima: 1000 ms
+            backOffMaxInterval: 1000
+
+            # Moltiplicatore del backoff
+            backOffMultiplier: 2.0
+
+      # Configurazione specifica RabbitMQ
+      rabbit:
+
+        bindings:
+
+          teacherCreatedEvent-in-0:
+
+            consumer:
+
+              # Crea automaticamente la DLQ
+              autoBindDlq: true
+
+              # Pubblica il messaggio fallito nella DLQ
+              republishToDlq: true

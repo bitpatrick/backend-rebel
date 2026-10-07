@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: gateway-service
+
+  cloud:
+    config:
+      username: ${CONFIG_SERVER_USERNAME:root}
+      password: ${CONFIG_SERVER_PASSWORD:s3cr3t}
+
+  config:
+    import: configserver:${CONFIG_SERVER_URL:http://config-server:8888}

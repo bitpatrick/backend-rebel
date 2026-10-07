@@ -1,0 +1,26 @@
+spring:
+  sql:
+   init:
+     mode: always
+
+  datasource:
+
+    # Database H2 locale
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+
+    # Aspetta Hibernate prima di eseguire data.sql
+    defer-datasource-initialization: true
+
+    # Mostra query SQL
+    show-sql: true
+
+    hibernate:
+      # Crea e distrugge le tabelle ad ogni avvio
+      ddl-auto: create-drop
+
+    #database-platform: org.hibernate.dialect.H2Dialect

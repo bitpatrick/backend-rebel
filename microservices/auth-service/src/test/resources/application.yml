@@ -1,0 +1,18 @@
+spring:
+  config:
+    import:
+      # configuration
+      - classpath:configuration/spring-app.yml
+      - classpath:configuration/spring-cloud-stream.yml
+      - classpath:configuration/spring-config-disable.yml
+      - classpath:configuration/spring-eureka-client-disable.yml
+      - classpath:configuration/spring-log.yml
+      - classpath:configuration/spring-metrics-disable.yml
+      - classpath:configuration/spring-web.yml
+
+      # domain
+      
+      - classpath:domain/roles.yml
+
+      # security
+      - classpath:security/jwt.yml

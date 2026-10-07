@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+	<modelVersion>4.0.0</modelVersion>
+
+	<!-- ============================================================
+         PARENT
+         ============================================================ -->
+
+	<parent>
+		<groupId>com.rebel</groupId>
+		<artifactId>gym-app</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
+		<relativePath>../../pom.xml</relativePath>
+	</parent>
+
+
+	<!-- ============================================================
+         PROJECT
+         ============================================================ -->
+
+	<artifactId>teach-service</artifactId>
+	<name>teach-service</name>
+	<description>Teach Service</description>
+
+
+	<!-- ============================================================
+         DEPENDENCIES
+         ============================================================ -->
+
+	<dependencies>
+
+		<!-- ========================================================
+         INTERNAL MODULES
+         ======================================================== -->
+
+		<!-- API module -->
+		<dependency>
+			<groupId>com.rebel</groupId>
+			<artifactId>api</artifactId>
+			<version>${api.version}</version>
+		</dependency>
+
+		<!-- Util module -->
+		<dependency>
+			<groupId>com.rebel</groupId>
+			<artifactId>util</artifactId>
+			<version>${util.version}</version>
+		</dependency>
+
+
+		<!-- ========================================================
+         SPRING
+         ======================================================== -->
+
+		<!-- Spring Security -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+		</dependency>
+
+		<!-- Spring Cloud Stream + RabbitMQ -->
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-stream-rabbit</artifactId>
+		</dependency>
+		
+		<!-- Actuator -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+
+		<!-- Spring Data JPA -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+
+		<!-- ========================================================
+             SPRING CLOUD
+             ======================================================== -->
+
+		<!-- Eureka Client -->
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+		</dependency>
+
+		<!-- Spring Cloud Config Client -->
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-config</artifactId>
+		</dependency>
+		
+		<!-- ========================================================
+         TRACING
+         ======================================================== -->
+         
+        <!-- OpenTelemetry -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-opentelemetry</artifactId>
+		</dependency>
+
+		<!-- OpenTelemetry Logback Appender -->
+		<dependency>
+			<groupId>io.opentelemetry.instrumentation</groupId>
+			<artifactId>opentelemetry-logback-appender-1.0</artifactId>
+			<version>${logback.opentelemetry.version}</version>
+		</dependency>
+
+
+		<!-- ========================================================
+         MAPPING
+         ======================================================== -->
+
+		<!-- MapStruct -->
+		<dependency>
+			<groupId>org.mapstruct</groupId>
+			<artifactId>mapstruct</artifactId>
+			<version>${map.struct.version}</version>
+		</dependency>
+
+		<!-- Lombok -->
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+
+
+		<!-- ========================================================
+         JWT
+         ======================================================== -->
+
+		<!-- JWT API -->
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-api</artifactId>
+			<version>${jwt.version}</version>
+		</dependency>
+
+		<!-- JWT Implementation -->
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-impl</artifactId>
+			<version>${jwt.version}</version>
+		</dependency>
+
+		<!-- JWT Jackson -->
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-jackson</artifactId>
+			<version>${jwt.version}</version>
+		</dependency>
+
+
+		<!-- ========================================================
+         TEST
+         ======================================================== -->
+
+		<!-- Spring Web Flux -->
+		<dependency>
+		    <groupId>org.springframework.boot</groupId>
+		    <artifactId>spring-boot-starter-webflux-test</artifactId>
+		    <scope>test</scope>
+		</dependency>
+
+		<!-- Spring Cloud Stream Test Binder -->
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-stream-test-binder</artifactId>
+			<scope>test</scope>
+		</dependency>
+		
+		<!-- ========================================================
+         DATABASE
+         ======================================================== -->
+
+		<!-- H2 Database -->
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+		</dependency>
+
+		<!-- H2 Console -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-h2console</artifactId>
+		</dependency>
+		
+	</dependencies>
+
+
+	<!-- ============================================================
+         BUILD
+         ============================================================ -->
+
+	<build>
+
+		<plugins>
+
+
+			<!-- ====================================================
+                 MAVEN COMPILER
+
+                 Configurazione per:
+                 - Java 21
+                 - Lombok
+                 - MapStruct
+                 ==================================================== -->
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+
+				<executions>
+
+					<!-- Main Compile -->
+					<execution>
+						<id>default-compile</id>
+						<phase>compile</phase>
+
+						<goals>
+							<goal>compile</goal>
+						</goals>
+
+						<configuration>
+
+							<annotationProcessorPaths>
+
+								<!-- Lombok -->
+								<path>
+									<groupId>org.projectlombok</groupId>
+									<artifactId>lombok</artifactId>
+								</path>
+
+								<!-- MapStruct -->
+								<path>
+									<groupId>org.mapstruct</groupId>
+									<artifactId>mapstruct-processor</artifactId>
+									<version>${map.struct.version}</version>
+								</path>
+
+							</annotationProcessorPaths>
+
+							<compilerArgs>
+
+								<!--
+                                    Genera automaticamente
+                                    componenti Spring per MapStruct.
+                                -->
+								<arg>
+									-Amapstruct.defaultComponentModel=spring
+								</arg>
+
+							</compilerArgs>
+
+						</configuration>
+					</execution>
+
+
+					<!-- Test Compile -->
+					<execution>
+						<id>default-testCompile</id>
+						<phase>test-compile</phase>
+
+						<goals>
+							<goal>testCompile</goal>
+						</goals>
+
+						<configuration>
+
+							<annotationProcessorPaths>
+
+								<!-- Lombok -->
+								<path>
+									<groupId>org.projectlombok</groupId>
+									<artifactId>lombok</artifactId>
+								</path>
+
+								<!-- MapStruct -->
+								<path>
+									<groupId>org.mapstruct</groupId>
+									<artifactId>mapstruct-processor</artifactId>
+									<version>${map.struct.version}</version>
+								</path>
+
+							</annotationProcessorPaths>
+
+							<compilerArgs>
+
+								<arg>
+									-Amapstruct.defaultComponentModel=spring
+								</arg>
+
+							</compilerArgs>
+
+						</configuration>
+					</execution>
+
+				</executions>
+			</plugin>
+
+			<!-- ====================================================
+                 SPRING BOOT MAVEN PLUGIN
+
+                 Repackage trasforma il normale JAR Maven
+                 in un executable Spring Boot JAR.
+
+                 Genera:
+                 - BOOT-INF/classes
+                 - BOOT-INF/lib
+                 - Spring Boot Launcher
+                 ==================================================== -->
+
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+
+		</plugins>
+
+	</build>
+
+</project>

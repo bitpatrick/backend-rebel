@@ -1,0 +1,10 @@
+spring:
+
+  h2:
+    console:
+      # Abilita la console H2
+      enabled: true
+      # URL della console
+      path: /api/teach/h2-console
+      settings:
+        web-allow-others: true

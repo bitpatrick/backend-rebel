@@ -1,0 +1,8 @@
+spring:
+  cloud:
+    stream:
+      bindings:
+        # Nome del binding usato da StreamBridge
+        teacher-created-event-out-0:
+          # Nome della destinazione RabbitMQ
+          destination: teacher-events

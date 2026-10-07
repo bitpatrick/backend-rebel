@@ -1,0 +1,26 @@
+server:
+  # Porta dell'applicazione
+  port: ${SERVER_PORT:8888}
+
+spring:
+  application:
+    # Nome con cui Config Server si registra su Eureka
+    name: config-server
+
+  profiles:
+    # Usa il backend "native", quindi file locali
+    active: native
+
+  cloud:
+    config:
+      server:
+        native:
+          # Directory delle configurazioni dei microservizi
+          search-locations: classpath:/config-repo
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

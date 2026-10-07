@@ -1,0 +1,48 @@
+spring:
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+
+            # Dashboard: /eureka/ → /
+            - id: eureka-dashboard
+              uri: ${eureka.server.uri:http://discovery-service:8080}
+              predicates:
+                - Path=/eureka/
+              filters:
+                - PreserveHostHeader
+                - SetPath=/
+
+            # Risorse: /eureka/css/... → /eureka/css/...
+            - id: eureka-resources
+              uri: ${eureka.server.uri:http://discovery-service:8080}
+              predicates:
+                - Path=/eureka/**
+              filters:
+                - PreserveHostHeader
+
+            # Config Server
+            - id: config-server
+              uri: ${config.server.uri:http://config-server:8888}
+              predicates:
+                - Path=/config/**
+              filters:
+                - PreserveHostHeader
+                - StripPrefix=1
+
+            # Auth
+            - id: auth-service
+              uri: ${auth-service.uri:lb://AUTH-SERVICE}
+              predicates:
+                - Path=${AUTH_REACTIVE_PATH:/api/auth}/**
+              filters:
+                - PreserveHostHeader
+
+            # Teach
+            - id: teach-service
+              uri: ${teach-service.uri:lb://TEACH-SERVICE}
+              predicates:
+                - Path=${TEACH_PATH:/api/teach}/**
+              filters:
+                - PreserveHostHeader

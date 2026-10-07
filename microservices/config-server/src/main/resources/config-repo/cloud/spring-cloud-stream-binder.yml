@@ -1,0 +1,7 @@
+spring:
+
+  # Spring Cloud Stream
+  cloud:
+    stream:
+      defaultBinder: rabbit
+      default.contentType: application/json

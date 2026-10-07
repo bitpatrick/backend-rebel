@@ -1,0 +1,4 @@
+logging:
+
+  # Usa il file Logback personalizzato presente nel container
+  config: file:/app/config/logback-spring.xml

@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: teach-service
+
+  cloud:
+    config:
+      username: ${CONFIG_SERVER_USERNAME:root}
+      password: ${CONFIG_SERVER_PASSWORD:s3cr3t}
+
+  # Import obbligatorio: niente "optional:"
+  config:
+    import: configserver:${CONFIG_SERVER_URL:http://config-server:8888}
+
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:db/data-cloud.sql

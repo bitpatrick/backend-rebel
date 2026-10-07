@@ -1,0 +1,10 @@
+spring:
+
+  cloud:
+    stream:
+      bindings:
+        teacher-created-event-out-0:
+          destination: teacher-events
+
+          producer:
+            partition-key-expression: headers['partitionKey']

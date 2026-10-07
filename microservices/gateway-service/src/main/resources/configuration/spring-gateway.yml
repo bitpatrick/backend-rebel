@@ -1,0 +1,16 @@
+spring:
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+
+            - id: auth-service
+              uri: ${auth-service.uri:lb://AUTH-SERVICE}
+              predicates:
+                - Path=${AUTH_PATH:/api/auth}/**
+                
+            - id: teach-service
+              uri: ${teach-service.uri:lb://TEACH-SERVICE}
+              predicates:
+                - Path=${TEACH_PATH:/api/teach}/**

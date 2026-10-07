@@ -1,0 +1,16 @@
+spring:
+  config:
+    import:
+
+      # common
+      - classpath:config-repo/common/spring-eureka-client-only-fetch.yml
+      - classpath:config-repo/common/spring-web.yml
+      - classpath:config-repo/common/tracing.yml
+
+      # service
+      - classpath:config-repo/gateway-service/spring-gateway-routes.yml
+      - classpath:config-repo/gateway-service/spring-actuator-gateway.yml
+
+      # log
+      - classpath:config-repo/log/spring-log-gateway.yml
+      - classpath:config-repo/log/spring-log-tracing.yml

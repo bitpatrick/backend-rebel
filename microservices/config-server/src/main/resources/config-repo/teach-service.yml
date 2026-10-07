@@ -1,0 +1,28 @@
+spring:
+  config:
+    import:
+
+      # common
+      - classpath:config-repo/common/spring-actuator.yml
+      - classpath:config-repo/common/spring-eureka-client.yml
+      - classpath:config-repo/common/spring-web.yml
+      - classpath:config-repo/common/tracing.yml
+
+      # domain
+      - classpath:config-repo/domain/lessons.yml
+
+      # security
+      - classpath:config-repo/security/jwt.yml
+
+      # cloud
+      - classpath:config-repo/cloud/rabbitmq.yml
+      - classpath:config-repo/cloud/spring-cloud-stream-binder.yml
+      - classpath:config-repo/cloud/spring-cloud-stream-teach.yml
+
+      # db
+      - classpath:config-repo/db/h2-console.yml
+      - classpath:config-repo/db/spring-data-jpa-h2.yml
+
+      # log
+      - classpath:config-repo/log/spring-log.yml
+      - classpath:config-repo/log/spring-log-tracing.yml

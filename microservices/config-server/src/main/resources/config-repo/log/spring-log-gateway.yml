@@ -1,0 +1,53 @@
+spring:
+
+  output:
+    ansi:
+      enabled: always
+
+  cloud:
+
+    gateway:
+
+      httpclient:
+
+        # Gateway → microservizio
+        wiretap: true
+
+      httpserver:
+
+        # Client → Gateway
+        wiretap: true
+
+
+logging:
+
+  pattern:
+    # Timestamp + livello + logger + messaggio
+    console: "%clr(%d{HH:mm:ss.SSS}){faint} %clr(%5p) %clr([%t]){cyan} %clr(%-40.40logger{39}){blue} : %m%n%wEx"
+
+  level:
+
+    # ==============================
+    # Spring Cloud Gateway
+    # ==============================
+    # Routing, predicates, filters,
+    # route matching, LoadBalancer...
+    org.springframework.cloud.gateway: DEBUG
+
+    # ==============================
+    # HTTP Server
+    # ==============================
+    # Client → Gateway
+    reactor.netty.http.server: DEBUG
+
+    # ==============================
+    # HTTP Client
+    # ==============================
+    # Gateway → microservizio
+    reactor.netty.http.client: DEBUG
+
+    # ==============================
+    # Spring WebFlux
+    # ==============================
+    # Request handling WebFlux
+    org.springframework.web: DEBUG

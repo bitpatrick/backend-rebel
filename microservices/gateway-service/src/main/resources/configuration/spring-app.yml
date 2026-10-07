@@ -1,0 +1,4 @@
+spring:
+  application:
+    # Nome registrato su Eureka
+    name: gateway-service

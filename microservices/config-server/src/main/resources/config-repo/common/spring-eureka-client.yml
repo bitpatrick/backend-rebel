@@ -1,0 +1,17 @@
+eureka:
+  client:
+
+    # Il Gateway NON si registra su Eureka
+    register-with-eureka: true
+
+    # Il Gateway legge la lista dei servizi registrati su Eureka
+    fetch-registry: true
+
+    service-url:
+      # URL del server Eureka, con credenziali e parametri configurabili
+      defaultZone: http://${EUREKA_USERNAME:admin}:${EUREKA_PASSWORD:admin}@${EUREKA_HOST:discovery-service}:${EUREKA_PORT:8080}/eureka/
+
+  instance:
+    # Preferisce l'indirizzo IP invece del hostname
+    # quando comunica con Eureka
+    prefer-ip-address: true

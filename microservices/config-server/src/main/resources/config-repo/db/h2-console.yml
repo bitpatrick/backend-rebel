@@ -1,0 +1,7 @@
+spring:
+  h2:
+    console:
+      enabled: true
+      path: /api/${spring.application.name}/h2-console
+      settings:
+        web-allow-others: true
