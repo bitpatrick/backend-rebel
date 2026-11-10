@@ -1,0 +1,67 @@
+spring:
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+
+            # Eureka dashboard: /eureka/ → /
+            - id: eureka-dashboard
+              uri: ${eureka.server.uri:http://discovery-service:8080}
+              predicates:
+                - Path=/eureka/
+              filters:
+                - PreserveHostHeader
+                - SetPath=/
+
+            # Eureka resources: /eureka/** → /eureka/**
+            - id: eureka-resources
+              uri: ${eureka.server.uri:http://discovery-service:8080}
+              predicates:
+                - Path=/eureka/**
+              filters:
+                - PreserveHostHeader
+
+            # Config Server: /config/** → /**
+            - id: config-server
+              uri: ${config.server.uri:http://config-server:8888}
+              predicates:
+                - Path=/config/**
+              filters:
+                - PreserveHostHeader
+                - StripPrefix=1
+
+            # Auth: /auth-service/** → /**
+            - id: auth-service
+              uri: ${auth-service.uri:lb://AUTH-SERVICE}
+              predicates:
+                - Path=${AUTH_PATH:/auth-service}/**
+              filters:
+                - PreserveHostHeader
+                - StripPrefix=1
+
+            # Teach: /teach-service/** → /**
+            - id: teach-service
+              uri: ${teach-service.uri:lb://TEACH-SERVICE}
+              predicates:
+                - Path=${TEACH_PATH:/teach-service}/**
+              filters:
+                - PreserveHostHeader
+                - StripPrefix=1
+
+            # Redirect: /h2-console → /h2-console/
+            - id: h2-console-redirect
+              uri: no://op
+              predicates:
+                - Path=/h2-console
+              filters:
+                - RedirectTo=302, /h2-console/
+
+            # H2 Console: /h2-console/** → /**
+            - id: h2-console
+              uri: http://teach-service:8082
+              predicates:
+                - Path=/h2-console/**
+              filters:
+                - PreserveHostHeader
+                - StripPrefix=1

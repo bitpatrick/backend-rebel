@@ -1,47 +1,85 @@
 package com.rebel.teach;
+import static com.rebel.teach.integration.Integration.CIRCUIT_BREAKER_NAME;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.http.HttpStatus.CREATED;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
+import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.cloud.stream.binder.test.TestChannelBinderConfiguration;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.rebel.api.core.auth.JwtService;
+import com.rebel.api.core.auth.User;
+import com.rebel.api.core.teach.CreateTeacherRequest;
 import com.rebel.api.core.teach.TeachAdminController;
 import com.rebel.teach.controller.TeachAdminControllerImpl;
-import com.rebel.teach.entity.LessonEntity;
 import com.rebel.teach.entity.TeacherEntity;
-import com.rebel.teach.mapper.TeachServiceMapper;
+import com.rebel.teach.mapper.TeachMapper;
 import com.rebel.teach.repository.LessonRepository;
 import com.rebel.teach.repository.TeacherRepository;
+import com.rebel.util.ServiceUtil;
 import com.rebel.util.UrlBuilder;
 
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+@TestMethodOrder(OrderAnnotation.class)
 @ActiveProfiles("local")
 @AutoConfigureWebTestClient(timeout = "10m")
 @Transactional(propagation = Propagation.NOT_SUPPORTED) // NO ROLL BACK
-@SpringBootTest
+// Il test usa H2 in memoria e non richiede la console HTTP sulla porta 8082.
+@SpringBootTest(properties = {
+    "h2-server.enabled=false",
+    "management.endpoints.web.exposure.include=health,metrics",
+    "management.endpoint.health.show-details=always",
+    "management.health.circuitbreakers.enabled=true",
+    // Registra il breaker all'avvio per poter leggere la metrica prima della POST.
+    "resilience4j.circuitbreaker.instances.create-teacher-sync.register-health-indicator=true"
+})
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@Import(TestChannelBinderConfiguration.class)
+@Import({
+    TestChannelBinderConfiguration.class,
+    MyConfiguration.class
+})
 class TeachAdminServiceApplicationTests {
+	
+	private static final String CIRCUIT_BREAKER_HEALTH_ENDPOINT = "/actuator/health/circuitBreakers";
+
+	@Autowired
+	ServiceUtil serviceUtil;
 	
 	@Value("${lessons}")
 	Set<String> lessons;
@@ -55,10 +93,10 @@ class TeachAdminServiceApplicationTests {
 	String staffJWT;
 	
 	@Autowired
-	TeachServiceMapper teachMapper;
+	TeachMapper teachMapper;
 
 	@Autowired
-	ObjectMapper jsonMapper;
+	ObjectMapper objectMapper;
 	
 	@Autowired
 	TeacherRepository teacherRepository;
@@ -75,11 +113,38 @@ class TeachAdminServiceApplicationTests {
 	String helloUrl;
 	String teachersUrl;
 	String registerLessonUrl;
+	String createTeacherUrl;
 	
-	@BeforeAll
-	void setupJWTs() {
-		
-		
+	private static MockWebServer mockAuthServer = createMockServer();
+
+	private static MockWebServer createMockServer() {
+	    try {
+	        MockWebServer server = new MockWebServer();
+	        server.start();
+	        System.out.println(String.format(
+	                "AuthMockWebServer avviato - URI: %s, Port: %d",
+	                server.url("/"),
+	                server.getPort()
+	        ));
+	        return server;
+	    } catch (IOException e) {
+	        throw new RuntimeException(e);
+	    }
+	}
+
+	@AfterAll
+	static void stopMockServer() throws IOException {
+	    mockAuthServer.shutdown();
+	}
+	
+	@DynamicPropertySource
+	static void configureProperties(DynamicPropertyRegistry registry) {
+		String createUserEndpoint = String.format("http://fakehost:%s", mockAuthServer.getPort());
+		System.out.println("createUserEndpoint: " + createUserEndpoint);
+	    registry.add(
+	        "app.auth-service.url",
+	        () -> createUserEndpoint
+	    );
 	}
 	
 	@BeforeAll
@@ -102,90 +167,33 @@ class TeachAdminServiceApplicationTests {
                 String.class,
                 Pageable.class
         );
+        
+        createTeacherUrl = urlBuilder.buildPostUrl(
+        		TeachAdminController.class, 
+        		"createTeacherSync",
+				int.class,
+				int.class,
+        		Jwt.class,
+        		CreateTeacherRequest.class);
 
     }
 	
 	@BeforeAll
-	void setUpDatabase() {
+	void generateTokens() {
 
-	    TeacherEntity teacher1 = TeacherEntity.builder()
-	    		.name("Francesco")
-	    		.surname("Totti")
-	    		.email("francesco.totti@gmail.com")
-	    		.userId(998)
-	            .build();
-	    
-	    TeacherEntity teacher2 = TeacherEntity.builder()
-	    		.name("Luca")
-	    		.surname("Bianchi")
-	    		.email("luca.bianchi@gmail.com")
-	    		.userId(999)
-	            .build();
-	    
-	    TeacherEntity teacher3 = TeacherEntity.builder()
-	    		.name("Andrea")
-	    		.surname("Ferrari")
-	    		.email("andrea.ferrari@rebel.com")
-	    		.userId(906)
-	            .build();
-		
-		TeacherEntity teacher4 = TeacherEntity.builder()
-	    		.name("Stefano")
-	    		.surname("Fontana")
-	    		.email("stefano.fontana@rebel.com")
-	    		.userId(912)
-	            .build();
-		
-		TeacherEntity teacher5 = TeacherEntity.builder()
-	    		.name("Alessandro")
-	    		.surname("Ferri")
-	    		.email("alessandro.ferri@rebel.com")
-	    		.userId(917)
-	            .build();
-	    
-	    teacherRepository.saveAll(List.of(teacher1, teacher2, teacher3, teacher4, teacher5));
-	    
-	    LessonEntity lesson1 = LessonEntity.builder()
-	            .name("GYM")
-	            .date(LocalDate.of(2026, 8, 25))
-	            .startTime(LocalTime.of(10, 30))
-	            .endTime(LocalTime.of(11, 30))
-	            .teacher(teacher1)
-	            .build();
-	    
-	    LessonEntity lesson2 = LessonEntity.builder()
-	            .name("DANCE")
-	            .date(LocalDate.of(2026, 8, 26))
-	            .startTime(LocalTime.of(12, 0))
-	            .endTime(LocalTime.of(13, 0))
-	            .teacher(teacher1)
-	            .build();
-	    
-	    LessonEntity lesson3 = LessonEntity.builder()
-	            .name("GYM")
-	            .date(LocalDate.of(2026, 8, 27))
-	            .startTime(LocalTime.of(14, 0))
-	            .endTime(LocalTime.of(15, 0))
-	            .teacher(teacher2)
-	            .build();
-	    
-	    lessonRepository.saveAll(List.of(lesson1, lesson2, lesson3));
-	    
-	    /*
-	     * TOKEN
-	     */
 	    Map<String, Object> claims = new HashMap<>();
 	    claims.put("email", "mario.rossi@rebel.com");
 	    claims.put("roles", "ADMIN");
 	    adminJWT = jwtService.generateToken(claims);
 
-	    claims.put("email", teacher1.getEmail());
+	    claims.put("email", "giulia.romano@rebel.com");
 	    claims.put("roles", "TEACHER");
 	    teacherJWT = jwtService.generateToken(claims);
 	    
 	}
 	
 	@Test
+	@Order(1)
 	void hello_returnsOkWithUnauthenticatedUser() throws Exception {
 
 	    client.get()
@@ -198,6 +206,7 @@ class TeachAdminServiceApplicationTests {
 	}
 	
 	@Test
+	@Order(2)
 	void getTeachers_returnsPagedTeachers_whenAdmin() throws Exception {
 		
 		client.get()
@@ -209,72 +218,318 @@ class TeachAdminServiceApplicationTests {
 		.isOk();
 		
 	}
-//	
-//	@Test
-//	void getTeacher_returnsTeacher_whenAdmin() throws Exception {
-//
-//	    // when / then
-//	    client.perform(
-//	            get(teachersUrl + "/{id}", 1)
-//	            .accept(APPLICATION_JSON)	
-//	            .header("Authorization", "Bearer " + adminJWT)
-//	        )
-////	    .andDo(prettyPrint())
-//	        .andExpect(status().isOk())
-//	        .andExpect(jsonPath("$.id", is(1)))
-//	        .andExpect(jsonPath("$.name", is("Mario")))
-//	        .andExpect(jsonPath("$.surname", is("Rossi")))
-//	        .andExpect(jsonPath("$.email", is("mario.rossi@gmail.com")));
-//
-//	    // Verifica che sia stato chiamato user-service
-//	}
-//	
-//	@Test
-//	void getTeacher_returnsNotFoundWhenTeacherDoesNotExist_whenAdmin() throws Exception {
-//
-//	    // when / then
-//	    client.perform(
-//	            get(teachersUrl + "/{id}", 999)
-//	            .contentType(APPLICATION_JSON)
-//	            .header("Authorization", "Bearer " + adminJWT)
-//	        )
-//	        .andExpect(status().isNotFound());
-//
-//	}
-//	
-//	@Test
-//	void getTeacherLessons_returnsBadRequestWhenTeacherIdIsNegative_whenAdmin() throws Exception {
-//
-//	    client.perform(
-//	            get(teachersUrl + "/{id}/lessons", -1)
-//	            .accept(APPLICATION_JSON)
-//	            .header("Authorization", "Bearer " + adminJWT)
-//	    )
-////	    .andDo(print())
-//	    .andExpect(status().isBadRequest());
-//	}
-//	
-//	@Test
-//	void getParamsTeachers_returnsOk_whenAdmin() throws Exception {
-//		
-//		MockHttpServletResponse response = client.perform(
-//				get(teachersUrl)
-//				.param("name", "a")
-//				.param("surname", "f")
-//				.accept(APPLICATION_JSON)
-//				.header("Authorization", "Bearer " + adminJWT) 
-//				
-//				)
-//				.andExpect(status().isOk())
-//				.andReturn().getResponse();
-//		
-//		String json = response.getContentAsString();
-//		
-//		List<Teacher> teachers = jsonMapper.convertValue(jsonMapper.readTree(json).get("content"), new TypeReference<List<Teacher>>() {
-//		});
-//		
-////		assertThat(teachers).hasSize(2);
-////		assertThat(teachers).extracting(Teacher::id).containsExactlyInAnyOrder(3, 4);		
-//	}
 	
+	@Test
+	@Order(3)
+	void getTeacher_returnsTeacher_whenAdmin() {
+
+	    // ID dell'insegnante creato nel setup
+	    Integer teacherId = 919;
+
+	    client.get()
+	        .uri(teachersUrl + "/{id}", teacherId)
+	        .accept(APPLICATION_JSON)
+	        .header("Authorization", "Bearer " + adminJWT)
+	        .exchange()
+	        .expectStatus().isOk()
+	        .expectBody()
+	        .jsonPath("$.id").isEqualTo(teacherId)
+	        .jsonPath("$.name").isEqualTo("Marco")
+	        .jsonPath("$.surname").isEqualTo("Santoro")
+	        .jsonPath("$.email").isEqualTo("marco.santoro@rebel.com");
+	}
+
+	@Test
+	@Order(4)
+	void getTeacher_returnsNotFoundWhenTeacherDoesNotExist_whenAdmin() {
+
+	    // ID che non esiste nel database
+	    Integer teacherId = 9999;
+
+	    client.get()
+	        .uri(teachersUrl + "/{id}", teacherId)
+	        .accept(APPLICATION_JSON)
+	        .header("Authorization", "Bearer " + adminJWT)
+	        .exchange()
+	        .expectStatus().isNotFound();
+	}
+	
+	@Test
+	@Order(5)
+	void getTeacherLessons_returnsBadRequestWhenTeacherIdIsNegative_whenAdmin() {
+
+	    Integer teacherId = -1;
+
+	    client.get()
+	        .uri(teachersUrl + "/{id}/lessons", teacherId)
+	        .accept(APPLICATION_JSON)
+	        .header("Authorization", "Bearer " + adminJWT)
+	        .exchange()
+	        .expectStatus().isBadRequest();
+	}
+
+	@Test
+	@Order(6)
+	void getParamsTeachers_returnsOk_whenAdmin() {
+
+	    client.get()
+	        .uri(uriBuilder -> uriBuilder
+	            .path(teachersUrl)
+	            .queryParam("name", "a")
+	            .queryParam("surname", "f")
+	            .build())
+	        .accept(APPLICATION_JSON)
+	        .header("Authorization", "Bearer " + adminJWT)
+	        .exchange()
+	        .expectStatus().isOk()
+	        .expectBody()
+	        .jsonPath("$.content.length()").isEqualTo(2)
+	        .jsonPath("$.content[0].id").isEqualTo(906)
+	        .jsonPath("$.content[1].id").isEqualTo(917)
+	        .jsonPath("$.numberOfElements").isEqualTo(2)
+	        .jsonPath("$.totalElements").isEqualTo(2)
+	        .jsonPath("$.totalPages").isEqualTo(1)
+	        .jsonPath("$.number").isEqualTo(0)
+	        .jsonPath("$.size").isEqualTo(20)
+	        .jsonPath("$.first").isEqualTo(true)
+	        .jsonPath("$.last").isEqualTo(true);
+	}
+	
+	/*
+	 * START TEST PAGINATION
+	 */
+	
+	@Test
+	@Order(7)
+	void getTeachers_returnsCorrectPages() {
+
+	    Pageable nextPage = PageRequest.of(
+	        0, 2, Sort.by("id").ascending()
+	    );
+
+	    nextPage = testNextPage(nextPage, "[905, 906]", true);
+	    nextPage = testNextPage(nextPage, "[907, 908]", true);
+	    nextPage = testNextPage(nextPage, "[909, 910]", true);
+	    nextPage = testNextPage(nextPage, "[911, 912]", true);
+	    nextPage = testNextPage(nextPage, "[913, 914]", true);
+	    nextPage = testNextPage(nextPage, "[915, 916]", true);
+	    nextPage = testNextPage(nextPage, "[917, 918]", true);
+
+	    testNextPage(nextPage, "[919]", false);
+	}	
+	
+	@Order(8)
+	@Test
+	void getTeacherLessons_returnsLessons_whenAdmin() {
+
+	    Integer teacherId = 906; // Andrea Ferrari
+
+	    client.get()
+	        .uri(teachersUrl + "/{id}/lessons", teacherId)
+	        .accept(APPLICATION_JSON)
+	        .header("Authorization", "Bearer " + adminJWT)
+	        .exchange()
+	        .expectStatus().isOk()
+	        .expectBody()
+	        .jsonPath("$.content.length()").isEqualTo(2)
+	        .jsonPath("$.totalElements").isEqualTo(2)
+	        .jsonPath("$.content[0].name").isEqualTo("GYM")
+	        .jsonPath("$.content[1].name").isEqualTo("DANCE");
+	}
+	
+	private Pageable testNextPage(
+	        Pageable nextPage,
+	        String expectedTeacherIds,
+	        boolean expectsNextPage) {
+
+	    // Recupera la pagina richiesta dal database
+	    Page<TeacherEntity> teacherPage = teacherRepository.findAll(nextPage);
+
+	    // Verifica gli ID dei teacher
+	    assertEquals(
+	        expectedTeacherIds,
+	        teacherPage.getContent()
+	            .stream()
+	            .map(TeacherEntity::getId)
+	            .collect(Collectors.toList())
+	            .toString()
+	    );
+
+	    // Verifica se esiste una pagina successiva
+	    assertEquals(expectsNextPage, teacherPage.hasNext());
+
+	    return teacherPage.nextPageable();
+	}
+	
+	/*
+	 * END TEST PAGINATION
+	 */
+	
+	@Order(9)
+	@Test
+	void createSyncTeacher() throws InterruptedException {
+
+	    // 1. Preparo i dati della richiesta di registrazione
+	    String name = "Pinco";
+	    String surname = "Pallino";
+	    String email = "pinco.pallino@rebel.com";
+	    String password = "password";
+	    String serviceAddress = serviceUtil.getServiceAddress();
+
+	    CreateTeacherRequest request = new CreateTeacherRequest(
+	            name, surname, email, password, serviceAddress
+	    );
+
+	    // 2. Preparo la risposta simulata di Auth Service
+	    // Auth Service restituisce un User dopo aver registrato l'utente
+	    int userId = 999;
+	    User user = new User(userId, name, surname, email, password, "TEACHER", serviceAddress);
+	    
+
+	    mockAuthServer.enqueue(
+	            new MockResponse()
+	                    .setResponseCode(CREATED.value())
+	                    .addHeader("Content-Type", APPLICATION_JSON)
+	                    .setBody(objectMapper.writeValueAsString(user))
+	    );
+
+	    // 3. Invoco l'endpoint di registrazione di Teach Service
+	    // Teach Service chiamerà Auth Service tramite WebClient
+	    client.post()
+	            .uri(createTeacherUrl)
+	            .header("Authorization", "Bearer " + adminJWT)
+	            .contentType(APPLICATION_JSON)
+	            .accept(APPLICATION_JSON)
+	            .bodyValue(request)
+	            .exchange()
+
+	            // 4. Verifico la risposta HTTP di Teach Service
+	            .expectStatus().isCreated()
+
+	            // 5. Verifico il Teacher restituito nel response body
+	            .expectBody()
+	            .jsonPath("$.id").isNumber()
+	            .jsonPath("$.name").isEqualTo(name)
+	            .jsonPath("$.surname").isEqualTo(surname)
+	            .jsonPath("$.email").isEqualTo(email)
+	            .jsonPath("$.userId").isEqualTo(userId);
+
+	    // 6. Verifico la richiesta HTTP ricevuta da Mock Auth Service
+	    RecordedRequest recordedRequest = mockAuthServer.takeRequest(5, TimeUnit.SECONDS);
+	    assertThat(recordedRequest).isNotNull();
+
+	    assertEquals("POST", recordedRequest.getMethod());
+	    assertEquals("/api/sync-signup?delay=0&faultPercent=0", recordedRequest.getPath());
+	    assertEquals(
+	            "Bearer " + adminJWT,
+	            recordedRequest.getHeader("Authorization")
+	    );
+	}
+	
+	/*
+	 * TEST CIRCUIT BREAKER
+	 */
+
+	@Order(10)
+    @Test
+    void createSyncTeacherReturnsUnavailableOnFallbackWithoutSaving() throws InterruptedException {
+    	
+        long teachersBefore = teacherRepository.count();
+        JsonNode healthBefore = createTeacherCircuitBreakerHealthDetails()
+        	    .required("details")
+        	    .required(CIRCUIT_BREAKER_NAME)
+        	    .required("details");
+        
+        String name = "Pizza";
+	    String surname = "Balla";
+	    String email = "pizza.balla@rebel.com";
+	    String password = "password";
+	    String serviceAddress = serviceUtil.getServiceAddress();
+        CreateTeacherRequest request = new CreateTeacherRequest(name, surname, email, password, serviceAddress);
+
+        // Un errore HTTP di Auth attiva il fallback reale dell'integrazione.
+        mockAuthServer.enqueue(new MockResponse().setResponseCode(500));
+
+        // chiamo l endpoint e mi aspetto che torni 503
+        client.post()
+                .uri(createTeacherUrl)
+                .header("Authorization", "Bearer " + adminJWT)
+                .contentType(APPLICATION_JSON)
+                .accept(APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isEqualTo(503)
+                .expectBody()
+                .jsonPath("$.id").isEmpty()
+                .jsonPath("$.userId").isEmpty()
+                .jsonPath("$.name").isEqualTo("Fallback user")
+                .jsonPath("$.surname").isEqualTo("Fallback user")
+                .jsonPath("$.email").isEqualTo("Fallback user");
+        
+        JsonNode healthAfter = createTeacherCircuitBreakerHealthDetails().required("details").required(CIRCUIT_BREAKER_NAME).required("details");
+        assertThat(healthAfter.required("bufferedCalls").intValue())
+                .as("bufferedCalls in circuit breaker health")
+                .isEqualTo(healthBefore.required("bufferedCalls").intValue() + 1);
+        assertThat(healthAfter.required("failedCalls").intValue())
+                .as("failedCalls in circuit breaker health")
+                .isEqualTo(healthBefore.required("failedCalls").intValue() + 1);
+
+        assertThat(teacherRepository.count()).isEqualTo(teachersBefore);
+        assertThat(teacherRepository.existsByEmail(email)).isFalse();
+        assertThat(mockAuthServer.takeRequest(5, TimeUnit.SECONDS)).isNotNull();
+    }
+    
+	@Order(11)
+    @Test
+    void createSyncTeacherReturnsCloseStateAfter3Requests() {
+    	
+        String name = "Attila";
+	    String surname = "Unno";
+	    String email = "attila.unno@rebel.com";
+	    String password = "password";
+	    String serviceAddress = serviceUtil.getServiceAddress();
+        CreateTeacherRequest request = new CreateTeacherRequest(name, surname, email, password, serviceAddress);
+        IntStream.iterate(1, i -> i <= 3, i -> {
+        	
+        	// chiamo l endpoint e mi aspetto che torni 503
+            client.post()
+                    .uri(createTeacherUrl)
+                    .header("Authorization", "Bearer " + adminJWT)
+                    .contentType(APPLICATION_JSON)
+                    .accept(APPLICATION_JSON)
+                    .bodyValue(request)
+                    .exchange()
+                    .expectStatus().isEqualTo(503)
+                    .expectBody()
+                    .jsonPath("$.id").isEmpty()
+                    .jsonPath("$.userId").isEmpty()
+                    .jsonPath("$.name").isEqualTo("Fallback user")
+                    .jsonPath("$.surname").isEqualTo("Fallback user")
+                    .jsonPath("$.email").isEqualTo("Fallback user");
+        	
+        	return i;
+        });
+        
+        JsonNode healtAfter = createTeacherCircuitBreakerHealthDetails();
+        assertThat(healtAfter.required("status").stringValue()).as("Aggregate state of the Circuit Breakers").isEqualTo("UP");
+        assertThat(healtAfter.required("details").required(CIRCUIT_BREAKER_NAME).required("details").required("state").stringValue()).as("State of the circuit breaker").isEqualTo("CLOSED");
+        assertThat(healtAfter.required("details").required(CIRCUIT_BREAKER_NAME).required("details").required("state").stringValue()).as("State of the circuit breaker").isEqualTo("CLOSED");
+    	
+    }
+
+    private JsonNode createTeacherCircuitBreakerHealthDetails() {
+        
+    	JsonNode health = client.get()
+                .uri(CIRCUIT_BREAKER_HEALTH_ENDPOINT)
+                .accept(APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(JsonNode.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertThat(health).isNotNull();
+        return health;
+    }
+    
 }

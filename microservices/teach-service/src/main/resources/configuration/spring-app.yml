@@ -1,4 +1,0 @@
-spring:
-  application:
-    # Nome registrato su Eureka
-    name: teach-service

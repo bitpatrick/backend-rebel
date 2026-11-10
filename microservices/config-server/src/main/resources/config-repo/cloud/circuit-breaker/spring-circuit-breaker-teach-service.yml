@@ -1,0 +1,45 @@
+# Configurazione di Resilience4j.
+resilience4j:
+  # Configurazione dei Circuit Breaker.
+  circuitbreaker:
+    instances:
+      # Nome istanze dei Circuit Breaker.
+      create-teacher-sync:
+
+        # Espone lo stato del Circuit Breaker tramite Actuator.
+        registerHealthIndicator: true
+
+        # Evita che un errore dell'health indicator renda DOWN l' Health Indicator e quindi renda unhealthy il servizio.
+        allowHealthIndicatorToFail: false
+
+        # Calcola il tasso di errore contando le chiamate.
+        slidingWindowType: COUNT_BASED
+
+        # Numero di chiamate considerate nella finestra di valutazione.
+        slidingWindowSize: 5
+
+        # Valuta il tasso di errore dopo cinque chiamate conteggiate.
+        minimumNumberOfCalls: 5
+
+        # Percentuale di fallimenti necessaria per aprire il circuito.
+        failureRateThreshold: 50
+
+        # Tempo trascorso in OPEN prima del passaggio a HALF_OPEN.
+        waitDurationInOpenState: 10s
+
+        # Numero di chiamate di prova consentite in HALF_OPEN.
+        permittedNumberOfCallsInHalfOpenState: 3
+
+        # Abilita il passaggio automatico da OPEN a HALF_OPEN.
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+        # Eccezioni escluse dal conteggio dei fallimenti.
+        ignoreExceptions:
+          # Errore relativo a un input non valido.
+          - com.rebel.api.exception.InvalidInputException
+
+          # Errore relativo a una risorsa non trovata.
+          - com.rebel.api.exception.NotFoundException
+
+          # Risposta HTTP 404 restituita da un servizio chiamato tramite WebClient.
+          - org.springframework.web.reactive.function.client.WebClientResponseException$NotFound

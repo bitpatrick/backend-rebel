@@ -1,0 +1,10 @@
+spring:
+  sql:
+    init:
+      # Always execute SQL initialization scripts
+      mode: always
+
+      # SQL scripts used to populate the database
+      data-locations:
+        - classpath:data/teachers.sql
+        - classpath:data/lessons.sql

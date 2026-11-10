@@ -48,17 +48,18 @@ public class SecurityConfig {
         		        // ENDPOINT PUBBLICI
         		        // ============================================================
 
-        		        .pathMatchers("/api/auth/hello").permitAll()
-        		        .pathMatchers("/api/auth/login").permitAll()
-        		        .pathMatchers("/api/auth/hash").permitAll()
-        		        .pathMatchers("/api/auth/h2-console/**").permitAll()
-        		        .pathMatchers("/actuator/health").permitAll()
+        		        .pathMatchers("/api/hello").permitAll()
+        		        .pathMatchers("api/circuit-breaker/hello").permitAll()
+        		        .pathMatchers("/api/login").permitAll()
+        		        .pathMatchers("/api/hash").permitAll()
+        		        .pathMatchers("/api/h2-console/**").permitAll()
+        		        .pathMatchers("/actuator/**").permitAll()
 
         		        // ============================================================
         		        // ENDPOINT PRIVATI
         		        // ============================================================
 
-        		        .pathMatchers("/api/auth/signup").hasRole("ADMIN")
+        		        .pathMatchers("/api/signup", "/api/sync-signup").hasRole("ADMIN")
 
         		        // ============================================================
         		        // DEFAULT

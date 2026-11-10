@@ -1,0 +1,4 @@
+spring:
+  jpa:
+    # Show SQL queries in the console
+    show-sql: true

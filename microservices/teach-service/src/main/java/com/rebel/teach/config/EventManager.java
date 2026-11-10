@@ -9,7 +9,7 @@ import com.rebel.api.core.auth.User;
 import com.rebel.api.core.event.Event;
 import com.rebel.api.core.teach.TeachAdminController;
 import com.rebel.api.core.teach.Teacher;
-import com.rebel.teach.mapper.TeachServiceMapper;
+import com.rebel.teach.mapper.TeachMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,67 +19,55 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class EventManager {
 
-	private final TeachServiceMapper mapper;
-	private final TeachAdminController controller;
+    private final TeachMapper mapper;
+    private final TeachAdminController controller;
 
-	@Bean
-	Consumer<Event<Integer, User>> teacherCreatedEvent() {
+    @Bean
+    Consumer<Event<Integer, User>> teacherEvent() {
 
-		return event -> {
+        return event -> {
 
-			log.info("Received event: type={}", event.type());
+            log.info("Received event: type={}", event.type());
 
-			switch (event.type()) {
+            switch (event.type()) {
 
-			case CREATE:
+                case CREATE:
 
-				log.info("Processing CREATE event");
+                    log.info("Processing CREATE event");
 
-				Teacher teacher = mapper.toDto(event.data());
+                    Teacher teacher = mapper.toTeacherDto(event.data());
 
-				log.info("Creating teacher: {}", teacher);
+                    log.info("Creating teacher: {}", teacher);
+                    
+                    // Blocca il thread fino al completamento della creazione, 
+                    // propagando eventuali errori per consentire a Spring Cloud Stream 
+                    // di gestirli tramite retry e dead-letter queue (RabbitMQ).
+                    Integer id = controller.createTeacher(teacher).block();
 
-				controller.createTeacher(teacher)
-	            .subscribe(
-	                    id -> log.info(
-	                            "Teacher created successfully with id={}",
-	                            id
-	                    ),
-	                    error -> log.error(
-	                            "Error creating teacher",
-	                            error
-	                    )
-	            );
+                    log.info("Teacher created successfully with id={}", id);
 
-				break;
+                    break;
 
-			case DELETE:
+                case DELETE:
 
-			    log.info("Processing DELETE event");
+                    log.info("Processing DELETE event");
 
-			    Integer userId = event.key();
+                    Integer userId = event.key();
+                    	
+                	// Blocca il thread fino al completamento della cancellazione, 
+                    // propagando eventuali errori per consentire a Spring Cloud Stream 
+                    // di gestirli tramite retry e dead-letter queue (RabbitMQ).
+                    controller.deleteTeacher(userId).block();
 
-			    controller.deleteTeacher(userId)
-			            .subscribe(
-			                    unused -> log.info(
-			                            "Teacher deleted successfully with userId={}",
-			                            userId
-			                    ),
-			                    error -> log.error(
-			                            "Error deleting teacher with userId={}",
-			                            userId,
-			                            error
-			                    )
-			            );
+                    log.info("Teacher deleted successfully with userId={}", userId);
 
-			    break;
+                    break;
 
-			default:
+                default:
 
-				log.warn("Unsupported event type: {}", event.type());
-
-				break;
-			}
-		};
-	}
+                    log.warn("Unsupported event type: {}", event.type());
+                    break;
+            }
+        };
+    }
 }

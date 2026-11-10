@@ -1,53 +1,26 @@
 spring:
-
-  output:
-    ansi:
-      enabled: always
-
   cloud:
-
     gateway:
-
       httpclient:
-
-        # Gateway → microservizio
+        # Gateway → microservizi: log del traffico in uscita
         wiretap: true
-
       httpserver:
-
-        # Client → Gateway
+        # Client → Gateway: log del traffico in ingresso
         wiretap: true
-
 
 logging:
-
-  pattern:
-    # Timestamp + livello + logger + messaggio
-    console: "%clr(%d{HH:mm:ss.SSS}){faint} %clr(%5p) %clr([%t]){cyan} %clr(%-40.40logger{39}){blue} : %m%n%wEx"
-
   level:
+    # Routing: selezione delle route e applicazione dei filtri
+    org.springframework.cloud.gateway: TRACE
 
-    # ==============================
-    # Spring Cloud Gateway
-    # ==============================
-    # Routing, predicates, filters,
-    # route matching, LoadBalancer...
-    org.springframework.cloud.gateway: DEBUG
-
-    # ==============================
-    # HTTP Server
-    # ==============================
-    # Client → Gateway
+    # HTTP server: richieste ricevute dal Gateway
     reactor.netty.http.server: DEBUG
 
-    # ==============================
-    # HTTP Client
-    # ==============================
-    # Gateway → microservizio
+    # HTTP client: chiamate dal Gateway ai microservizi
     reactor.netty.http.client: DEBUG
 
-    # ==============================
-    # Spring WebFlux
-    # ==============================
-    # Request handling WebFlux
-    org.springframework.web: DEBUG
+    # Connessioni e traffico di rete Reactor Netty
+    reactor.netty: DEBUG
+
+    # Risoluzione degli indirizzi e bilanciamento del carico
+    org.springframework.cloud.loadbalancer: DEBUG

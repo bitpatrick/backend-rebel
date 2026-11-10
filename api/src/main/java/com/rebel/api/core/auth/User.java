@@ -29,7 +29,9 @@ public record User(
         String password,
 
         @NotBlank
-        String role
+        String role,
+        
+        String serviceAddress
         
 ) {
 
@@ -49,5 +51,6 @@ public record User(
 		User other = (User) obj;
 		return Objects.equals(email, other.email);
 	}
+	
 	
 }

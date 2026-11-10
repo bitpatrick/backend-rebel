@@ -1,0 +1,15 @@
+management:
+  tracing:
+    sampling:
+      # 1.0 = campiona il 100% delle nuove tracce avviate dal servizio.
+      probability: 1.0
+
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          # Spring Boot invia gli span delle tracce a questo URL tramite OTLP su HTTP.
+          # otel-collector è il nome del servizio sulla rete Docker.
+          # 4318 è la porta HTTP del Collector, /v1/traces è il percorso per le tracce.
+          # Il Collector inoltra poi le tracce a Tempo.
+          endpoint: http://otel-collector:4318/v1/traces

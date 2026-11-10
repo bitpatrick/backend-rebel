@@ -1,0 +1,51 @@
+services:
+  # ==========================================================
+  # GATEWAY SERVICE
+  # ==========================================================
+  gateway-service:
+    build:
+      # Percorso del Dockerfile del microservizio
+      context: ../microservices/gateway-service
+
+    container_name: gateway-service
+
+    volumes:
+      # Monta la configurazione Logback personalizzata nel container
+      - ./log/logback-spring.xml:/app/config/logback-spring.xml
+
+    environment:
+      # ======================================================
+      # OPENTELEMETRY
+      # ======================================================
+
+      # Endpoint OTLP HTTP dell'OpenTelemetry Collector
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+
+      # Abilita l'esportazione di traces, metrics e logs
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+
+      # Consente all'SDK OpenTelemetry di funzionare
+      OTEL_SDK_DISABLED: false
+
+    ports:
+      # Espone il Gateway sulla porta 8080 del PC
+      - "8080:8080"
+
+    depends_on:
+      config-server:
+        # Attende che il Config Server sia operativo
+        condition: service_healthy
+
+      discovery-service:
+        # Attende che Eureka sia operativo
+        condition: service_healthy
+
+      rabbitmq:
+        # Attende che RabbitMQ sia operativo
+        condition: service_healthy
+
+      otel-collector:
+        # Attende l'avvio del container Collector
+        condition: service_started

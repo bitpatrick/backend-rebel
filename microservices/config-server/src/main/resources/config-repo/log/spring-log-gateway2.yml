@@ -1,0 +1,40 @@
+spring:
+  cloud:
+    gateway:
+      httpclient:
+        # Gateway → microservizio
+        wiretap: true  # Abilita il logging dettagliato del traffico HTTP in uscita
+
+      httpserver:
+        # Client → Gateway
+        wiretap: true  # Abilita il logging dettagliato del traffico HTTP in ingresso
+
+logging:
+  pattern:
+    # Formato dei log: timestamp, livello, thread, logger, messaggio ed eventuale stack trace
+    console: "%clr(%d{HH:mm:ss.SSS}){faint} %clr(%5p) %clr([%t]){cyan} %clr(%-40.40logger{39}){blue} : %m%n%wEx"
+
+  level:
+    # ==============================
+    # Spring Cloud Gateway
+    # ==============================
+    # Routing, predicates, filters, route matching e LoadBalancer
+    org.springframework.cloud.gateway: DEBUG
+
+    # ==============================
+    # HTTP Server
+    # ==============================
+    # Client → Gateway: gestione delle richieste HTTP in ingresso
+    reactor.netty.http.server: DEBUG
+
+    # ==============================
+    # HTTP Client
+    # ==============================
+    # Gateway → microservizio: gestione delle richieste HTTP in uscita
+    reactor.netty.http.client: DEBUG
+
+    # ==============================
+    # Spring WebFlux
+    # ==============================
+    # Gestione delle richieste tramite il framework reattivo WebFlux
+    org.springframework.web: DEBUG

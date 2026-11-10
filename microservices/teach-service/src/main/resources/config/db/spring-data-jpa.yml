@@ -1,0 +1,8 @@
+spring:
+  jpa:
+    # Wait for Hibernate before executing data.sql
+    defer-datasource-initialization: true
+
+    hibernate:
+      # Create and drop database tables at startup/shutdown
+      ddl-auto: create-drop

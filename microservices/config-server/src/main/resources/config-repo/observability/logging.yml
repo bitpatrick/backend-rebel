@@ -1,0 +1,9 @@
+management:
+  opentelemetry:
+    logging:
+      export:
+        otlp:
+          # L'exporter dei log usa questo URL per inviare i log al Collector.
+          # /v1/logs è il percorso OTLP dedicato ai log.
+          # Il Collector inoltra poi i log a Loki.
+          endpoint: http://otel-collector:4318/v1/logs

@@ -1,0 +1,22 @@
+# ==========================================================
+# RABBITMQ
+# ==========================================================
+services:
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: rabbitmq
+
+    ports:
+      - "5672:5672"    # Porta AMQP
+      - "15672:15672"  # Dashboard di gestione
+
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+    healthcheck:
+      # Verifica che RabbitMQ sia operativo
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10

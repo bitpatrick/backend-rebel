@@ -1,0 +1,20 @@
+# Configurazione di Resilience4j.
+resilience4j:
+
+  # Configurazione dei timeout delle chiamate.
+  timelimiter:
+    instances:
+
+      # Nome dell'istanza del TimeLimiter.
+      create-teacher-sync:
+
+        # Tempo massimo consentito per completare l'operazione.
+        # Dopo 5 secondi viene generato un TimeoutException,
+        # che può attivare il fallback, se configurato.
+        timeoutDuration: 5s
+
+        # In caso di timeout, richiede la cancellazione del Future.
+        # Non garantisce che l'operazione sottostante venga interrotta.
+        # Con Reactor questa opzione non controlla la cancellazione:
+        # il timeout annulla direttamente la sottoscrizione reattiva.
+        cancelRunningFuture: true

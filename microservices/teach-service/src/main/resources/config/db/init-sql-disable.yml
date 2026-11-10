@@ -1,0 +1,5 @@
+spring:
+  sql:
+    init:
+      # Disable SQL initialization scripts
+      mode: never

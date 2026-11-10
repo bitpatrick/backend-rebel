@@ -1,0 +1,6 @@
+spring:
+  cloud:
+    config:
+      # Credentials used by the application to authenticate with Config Server
+      username: ${CONFIG_SERVER_USERNAME:root}  # Reads environment variable or uses "root" as default
+      password: ${CONFIG_SERVER_PASSWORD:s3cr3t}  # Reads environment variable or uses "s3cr3t" as default

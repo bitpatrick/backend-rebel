@@ -1,0 +1,4 @@
+spring:
+  application:
+    # Unique application name, used by Spring Cloud Config and service discovery (Eureka)
+    name: teach-service

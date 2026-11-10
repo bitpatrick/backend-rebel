@@ -22,7 +22,9 @@ public record Teacher(
 
         @NotBlank(message = "Teacher email cannot be blank")
         @Email(message = "Teacher email must be a valid email address")
-        String email
+        String email,
+        
+        String serviceAddress
 
 ) {
 }

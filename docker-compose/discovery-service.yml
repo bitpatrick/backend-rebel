@@ -1,0 +1,33 @@
+services:
+  # ==========================================================
+  # DISCOVERY SERVICE - EUREKA
+  # ==========================================================
+  discovery-service:
+    build:
+      # Percorso del Dockerfile del microservizio
+      context: ../microservices/discovery-service
+
+    container_name: discovery-service
+
+    ports:
+      # Eureka Dashboard → http://localhost:8761/
+      - "8761:8080"
+
+    healthcheck:
+      # Verifica lo stato di salute tramite Spring Boot Actuator
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://localhost:${DISCOVERY_PORT:-8080}/actuator/health"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+    depends_on:
+      config-server:
+        # Avvia Eureka solo quando il Config Server è healthy
+        condition: service_healthy

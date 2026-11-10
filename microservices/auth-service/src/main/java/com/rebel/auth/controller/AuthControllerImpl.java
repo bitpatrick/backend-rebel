@@ -1,9 +1,14 @@
 package com.rebel.auth.controller;
 
+//import io.micrometer.tracing.Tracer;
 import static com.rebel.api.core.event.Type.CREATE;
+import static com.rebel.api.core.event.Type.DELETE;
+import static org.springframework.http.HttpStatus.ACCEPTED;
 import static org.springframework.http.HttpStatus.CREATED;
 
+import java.time.Duration;
 import java.time.ZonedDateTime;
+import java.util.Random;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -30,6 +35,7 @@ import com.rebel.auth.entity.UserEntity;
 import com.rebel.auth.mapper.UserMapper;
 import com.rebel.auth.repo.UserRepository;
 import com.rebel.auth.service.SequenceGeneratorService;
+import com.rebel.util.ServiceUtil;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -37,231 +43,320 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
 
 @RequiredArgsConstructor
 @RestController
 @Slf4j
-@RequestMapping("/api/auth")
+@RequestMapping("/api")
 public class AuthControllerImpl implements AuthController {
 
-	@Value("${roles}")
+    @Value("${roles}")
     private Set<String> roles;
-	
-	private final UserRepository userRepository;
-	private final UserMapper userMapper;
-	private final PasswordEncoder passwordEncoder;
-	private final StreamBridge streamBridge;
-	private final JwtService jwtService;
-	private final SequenceGeneratorService sequenceGenerator;
-	
-	@Override
-	public Mono<String> hello() {
-	    log.info("{} Hello endpoint called", getClass().getSimpleName());
-	    return Mono.just("Hello from " + getClass().getSimpleName());
-	}
 
-	@Override
-	public Mono<ResponseEntity<Integer>> register(@Valid User user)
-	        throws InvalidInputException {
-	
-	    log.info("Registering user with email: {}", user.email());
-	
-	    return userRepository.existsByEmail(user.email())
-	    		/*
-	    		 * riceve il Boolean emesso dal Mono
-	    		 * e restituisce un'altra operazione Mono
-	    		 * quindi concatena un'altra operazione reactive
-	    		 */
-	            .flatMap(userAlreadyExists -> {
+    private final Scheduler publishEventScheduler;
+    private final UserRepository userRepository;
+    private final UserMapper mapper;
+    private final PasswordEncoder passwordEncoder;
+    private final StreamBridge streamBridge;
+    private final JwtService jwtService;
+    private final SequenceGeneratorService sequenceGenerator;
+    private final ServiceUtil serviceUtil;
+//    private final Tracer tracer;
+    private final Random randomNumberGenerator = new Random();
 
-	                if (userAlreadyExists) {
-	                    return Mono.error(
-	                            new InvalidInputException(
-	                                    String.format(
-	                                            "User with email %s already exists",
-	                                            user.email())));
-	                }
+    @Override
+    public Mono<String> hello() {
+        log.info("Received request to hello endpoint on {}", getClass().getSimpleName());
 
-	                if (!roles.contains(user.role())) {
-	                    return Mono.error(
-	                            new NotFoundException("Some role is NOT found"));
-	                }
+//        log.info("Current traceId: {}", tracer.currentSpan().context().traceId());
+        
+        return Mono.just(String.format(
+            "Hello from %s instance: %s",
+            getClass().getSimpleName(),
+            serviceUtil.getServiceAddress()
+        ));
+    }
 
-	                return sequenceGenerator.generateSequence(UserEntity.SEQUENCE_NAME);
-	                
-	            }).flatMap(id -> {
-	            	
-	            	String passwordEncoded =
-	                        passwordEncoder.encode(user.password());
+    @Override
+    public Mono<LoginResponse> authenticate(@Valid LoginUser loginUser)
+            throws NotFoundException, InvalidInputException {
 
-	                UserEntity entity = userMapper.toEntity(user);
-	                entity.setId(id);
-	                entity.setPassword(passwordEncoded);
+        log.info("Authentication requested");
 
-	                // save() restituisce Mono<UserEntity>
-	                return userRepository.save(entity);
-	            	
-	            })
-	            .map(userMapper::toDomain) // trasforma UserEntity in User in modo sincrono
-	            
-	            // riceve User e restituisce un altro Mono
-	            // quindi concatena un'altra operazione reactive
-	            .flatMap(savedUser -> {
+        return userRepository.findByEmail(loginUser.email())
+                .switchIfEmpty(
+                        Mono.error(new NotFoundException("User NOT found with email: " + loginUser.email()))
+                )
+                .flatMap(user -> {
 
-	                log.info("User registered successfully - id: {}, email: {}",
-	                        savedUser.id(),
-	                        savedUser.email());
+                    if (!passwordEncoder.matches(
+                            loginUser.password(),
+                            user.getPassword())) {
 
-	                if (savedUser.role().equals("TEACHER")) {
-	                	// invio evento a alla destinazione
-	                    sendMessage(
-	                            "teacher-created-event-out-0",
-	                            new Event<>(
-	                                    CREATE,
-	                                    savedUser.id(),
-	                                    savedUser,
-	                                    ZonedDateTime.now()));
+                        log.warn("Authentication failed - invalid credentials");
 
-	                    return Mono.just(
-	                            ResponseEntity.accepted().body(savedUser.id()));
-	                }
+                        return Mono.error(
+                                new InvalidInputException("Invalid password"));
+                    }
 
-	                return Mono.just(
-	                        ResponseEntity.status(CREATED).body(savedUser.id()));
-	            });
-	}
-	
-	
-	@Override
-	public Mono<LoginResponse> authenticate(@Valid LoginUser loginUser)
-	        throws NotFoundException, InvalidInputException {
+                    log.debug("User credentials validated - id: {}", user.getId());
 
-	    log.info("Login attempt - email: {}", loginUser.email());
+                    return Mono.just(user);
+                })
+                .map(user -> {
 
-	    return userRepository.findByEmail(loginUser.email())
-	            .log("AUTH - findByEmail")
-	            .switchIfEmpty(
-	                    Mono.error(new NotFoundException(String.format("User NOT found with email: %s", loginUser.email())))
-	            )
-	            .flatMap(user -> {
+                    LoginResponse response = new LoginResponse(
+                            jwtService.generateToken(user),
+                            jwtService.getExpirationTime(),
+                            serviceUtil.getServiceAddress()
+                    );
 
-	                log.info("User found - email: {}", user.getEmail());
+                    log.info("Authentication successful - userId: {}", user.getId());
 
-	                if (!passwordEncoder.matches(
-	                        loginUser.password(),
-	                        user.getPassword())) {
+                    return response;
+                });
+    }
 
-	                    log.warn("Invalid password - email: {}", loginUser.email());
+    @Override
+    public Mono<String> hashPassword(String password) {
 
-	                    return Mono.error(
-	                            new InvalidInputException("Invalid Password"));
-	                }
+        log.debug("Password hashing requested");
 
-	                log.info("Password validated - email: {}", loginUser.email());
+        return Mono.fromCallable(() -> passwordEncoder.encode(password));
+    }
 
-	                return Mono.just(user);
-	            })
-	            .log("AUTH - password validation")
-	            .map(user -> {
-	                log.info("Generating JWT - email: {}", user.getEmail());
+    @Override
+    public Mono<Page<User>> getUsers(Pageable pageable) {
 
-	                return new LoginResponse(
-	                        jwtService.generateToken(user),
-	                        jwtService.getExpirationTime());
-	            })
-	            .log("AUTH - JWT generated");
-	}
+        log.debug("Fetching users - page: {}, size: {}",
+                pageable.getPageNumber(),
+                pageable.getPageSize());
 
-	@Override
-	public Mono<String> hashPassword(String password) {
+        return userRepository.findAllBy(pageable)
+                .map(mapper::toDomain)
+                .collectList()
+                .zipWith(userRepository.count())
+                .map(tuple -> {
 
-	    log.info("Hashing password");
+                    Page<User> page = new PageImpl<>(
+                            tuple.getT1(),
+                            pageable,
+                            tuple.getT2()
+                    );
 
-	    return Mono.just(passwordEncoder.encode(password))
-	            .log("AUTH - hashPassword");
-	}
-	
-	@Override
-	public Mono<Void> deleteUser(@NotBlank @Email String email)
-	        throws NotFoundException {
+                    log.debug("Users retrieved - count: {}, total: {}",
+                            page.getNumberOfElements(),
+                            page.getTotalElements());
 
-	    log.info("Deleting user - email: {}", email);
+                    return page;
+                });
+    }
 
-	    return userRepository.findByEmail(email)
-	            .log("AUTH - findByEmail")
+    @Override
+    public Mono<Void> deleteUser(@NotBlank @Email String email)
+            throws NotFoundException {
 
-	            .switchIfEmpty(
-	                    Mono.error(new NotFoundException())
-	            )
+        log.info("User deletion requested");
 
-	            .flatMap(user -> {
-	                log.info("User found - id: {}, email: {}",
-	                        user.getId(), user.getEmail());
+        return userRepository.findByEmail(email)
+                .switchIfEmpty(
+                        Mono.error(new NotFoundException("User not found"))
+                )
+                .flatMap(user -> {
 
-	                return userRepository.delete(user);
-	            })
-	            .log("AUTH - deleteUser");
-	}
+                    log.debug("User found - id: {}, role: {}",
+                            user.getId(), user.getRole());
 
-	@Override
-	public Mono<Page<User>> getUsers(Pageable pageable) {
+                    return userRepository.delete(user)
+                            .thenReturn(mapper.toDomain(user));
+                })
+                .flatMap(deletedUser -> {
 
-	    log.info("Getting users - page: {}, size: {}",
-	            pageable.getPageNumber(),
-	            pageable.getPageSize());
+                    log.info("User deleted successfully - id: {}",
+                            deletedUser.id());
 
-	    return userRepository
-	            .findAllBy(pageable)
-	            .log("AUTH - findAllBy")
+                    if ("TEACHER".equals(deletedUser.role())) {
 
-	            .map(userMapper::toDomain)
-	            .log("AUTH - toDomain")
+                        return Mono.fromRunnable(() -> {
 
-	            .collectList()
-	            .log("AUTH - collectList")
+                            sendMessage(
+                                    "teacher-event-out-0",
+                                    new Event<>(
+                                            DELETE,
+                                            deletedUser.id(),
+                                            deletedUser,
+                                            ZonedDateTime.now()
+                                    )
+                            );
 
-	            .zipWith(userRepository.count())
-	            .log("AUTH - zipWith count")
+                        }).subscribeOn(publishEventScheduler).then();
+                    }
 
-	            .map(tuple ->
-	                    new PageImpl<>(
-	                            tuple.getT1(),
-	                            pageable,
-	                            tuple.getT2()))
-	            
-	            ;
-	}
-	
-	private void sendMessage(
+                    return Mono.empty();
+                });
+    }
+
+    private void sendMessage(
             String bindingName,
             Event<Integer, User> event) {
 
-        log.debug("Sending event - binding: {}, key: {}, type: {}",
+        log.debug("Publishing event - binding: {}, key: {}, type: {}",
                 bindingName,
                 event.key(),
                 event.type());
 
-        Message<Event<Integer, User>> message =
-                MessageBuilder
-                        .withPayload(event)
-                        .setHeader("partitionKey", event.key())
-                        .build();
+        Message<Event<Integer, User>> message = MessageBuilder
+                .withPayload(event)
+                .setHeader("partitionKey", event.key())
+                .build();
 
-        boolean sent = streamBridge.send(
-                bindingName,
-                message);
+        boolean sent = streamBridge.send(bindingName, message);
 
-        if (sent) {
-            log.info(
-                    "Message sent successfully - binding: {}, key: {}",
+        if (!sent) {
+            log.error("Event publication failed - binding: {}, key: {}, type: {}",
                     bindingName,
-                    event.key());
-        } else {
-            log.error(
-                    "Failed to send message - binding: {}, key: {}",
-                    bindingName,
-                    event.key());
+                    event.key(),
+                    event.type());
+
+            throw new IllegalStateException("Unable to publish event: " + event.type());
         }
+
+        log.info("Event published successfully - binding: {}, key: {}, type: {}",
+                bindingName,
+                event.key(),
+                event.type());
+    }
+    
+    @Override
+    public Mono<ResponseEntity<User>> register(@Valid User user)
+            throws InvalidInputException {
+
+        log.info("User registration requested - email: {}", user.email());
+
+        return userRepository.existsByEmail(user.email())
+                .flatMap(alreadyExists -> {
+
+                    if (alreadyExists) {
+                        log.warn("User registration rejected - email already exists");
+
+                        return Mono.error(
+                                new InvalidInputException("User already exists"));
+                    }
+
+                    if (!roles.contains(user.role())) {
+                        log.warn("User registration rejected - invalid role: {}", user.role());
+
+                        return Mono.error(
+                                new NotFoundException("Role not found"));
+                    }
+
+                    return sequenceGenerator.generateSequence(UserEntity.SEQUENCE_NAME);
+                })
+                .zipWith(Mono.fromCallable(() -> mapper.toEntity(user)))
+                .flatMap(tuple -> {
+
+                    long id = tuple.getT1();
+                    UserEntity entity = tuple.getT2();
+
+                    entity.setId(id);
+                    entity.setPassword(passwordEncoder.encode(user.password()));
+
+                    return userRepository.save(entity);
+                })
+                .map(mapper::toDomain)
+                .flatMap(dto -> {
+
+                    log.info("User registered successfully - id: {}, role: {}",
+                            dto.id(), dto.role());
+
+                    if ("TEACHER".equals(dto.role())) {
+
+                        return Mono.fromCallable(() -> {
+
+                            sendMessage(
+                                    "teacher-event-out-0",
+                                    new Event<>(
+                                            CREATE,
+                                            dto.id(),
+                                            dto,
+                                            ZonedDateTime.now()
+                                    )
+                            );
+
+                            return ResponseEntity.status(ACCEPTED).body(dto);
+
+                        }).subscribeOn(publishEventScheduler);
+                    }
+
+                    return Mono.just(
+                            ResponseEntity.status(CREATED).body(dto)
+                    );
+                });
+    }
+    
+    @Override
+    public Mono<User> registerSync(@Valid User user, int delay, int faultPercent) throws InvalidInputException, InterruptedException {
+
+        log.info("Synchronous user registration requested - email: {}", user.email());
+        
+        // simulate delay
+        Thread.sleep(Duration.ofSeconds(delay));
+
+        return userRepository.existsByEmail(user.email())
+                .flatMap(alreadyExists -> {
+                    
+                	// check if user already exists
+                	if (alreadyExists) throw new InvalidInputException("User already exists");
+                	
+                	// check if role is valid
+                    if (!roles.contains(user.role())) throw new NotFoundException("Role not found");
+                    
+                    // check if bad luck
+                    throwErrorIfBadLuck(faultPercent);
+                    
+                    // generate id
+                    return sequenceGenerator.generateSequence(UserEntity.SEQUENCE_NAME);
+                })
+                .flatMap(id -> {
+                    UserEntity entity = mapper.toEntity(user);
+                    entity.setId(id);
+                    entity.setPassword(passwordEncoder.encode(user.password()));
+                    return userRepository.save(entity);
+                })
+                // Teach salva direttamente il docente dopo aver ricevuto questo DTO:
+                // pubblicare anche l'evento CREATE causerebbe una seconda creazione.
+                .map(mapper::toDomain)
+                .doOnSuccess(created -> log.info(
+                        "User synchronously registered - id: {}, email: {}",
+                        created.id(), created.email()))
+                .doOnError(error -> log.error(
+                        "Synchronous user registration failed - email: {}",
+                        user.email(), error));
+    }
+    
+    private void throwErrorIfBadLuck(int faultPercent) {
+    	
+    	if(faultPercent == 0) return;
+    	
+    	int randomThreshold = getRandomNumber(1, 100);
+    	
+    	if (faultPercent < randomThreshold) {
+    		 log.debug("We got lucky, no error occurred, {} < {}", 
+    		 faultPercent, randomThreshold);
+    		 
+    		 } else {
+    		 log.info("Bad luck, an error occurred, {} >= {}",
+    		 faultPercent, randomThreshold);
+    		 
+    		 throw new RuntimeException("Something went wrong...");
+		 }
+    	
+    }
+    
+    private int getRandomNumber(int min, int max) {
+    	if (max < min) throw new IllegalArgumentException("Max must be greater than min");
+    	return randomNumberGenerator.nextInt((max - min) + 1) + min;
     }
 
 }

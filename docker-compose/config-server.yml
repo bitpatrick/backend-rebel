@@ -1,0 +1,29 @@
+services:
+  # ==========================================================
+  # CONFIG SERVER
+  # ==========================================================
+  config-server:
+    build:
+      # Percorso del Dockerfile del Config Server
+      context: ../microservices/config-server
+
+    container_name: config-server
+
+    healthcheck:
+      # Verifica che Spring Boot risponda all'endpoint Health
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://localhost:${CONFIG_PORT:-8888}/actuator/health"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+    depends_on:
+      rabbitmq:
+        # Avvia il Config Server solo quando RabbitMQ è healthy
+        condition: service_healthy

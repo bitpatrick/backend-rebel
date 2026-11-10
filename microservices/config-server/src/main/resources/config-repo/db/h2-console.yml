@@ -1,7 +1,7 @@
 spring:
   h2:
     console:
-      enabled: true
-      path: /api/${spring.application.name}/h2-console
+      enabled: true # Abilita la console web di H2.
+      path: / # Definisce il percorso HTTP per accedere alla console.
       settings:
-        web-allow-others: true
+        web-allow-others: true # Consente l'accesso da altri host o container, non solo da localhost.

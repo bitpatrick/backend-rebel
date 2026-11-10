@@ -1,0 +1,13 @@
+global:
+  # Intervallo tra le raccolte delle metriche.
+  scrape_interval: 10s
+
+scrape_configs:
+  # Configurazione dello scraping dell'OTel Collector.
+  - job_name: otel-collector
+    # Mantiene le label ricevute dall'OTel Collector in caso di conflitto.
+    honor_labels: true
+    static_configs:
+      # Indirizzo e porta da cui Prometheus raccoglie le metriche.
+      - targets:
+          - otel-collector:8889

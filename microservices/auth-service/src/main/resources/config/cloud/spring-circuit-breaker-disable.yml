@@ -1,0 +1,5 @@
+spring:
+  cloud:
+    circuitbreaker:
+      resilience4j:
+        enabled: false  # Disabilita l'integrazione Resilience4j con Spring Cloud Circuit Breaker

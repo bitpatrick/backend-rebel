@@ -1,6 +1,7 @@
 package com.rebel.api.core.auth;
 
 import static org.springframework.http.HttpStatus.ACCEPTED;
+import static org.springframework.http.HttpStatus.CREATED;
 import static org.springframework.http.HttpStatus.OK;
 
 import org.springframework.data.domain.Page;
@@ -26,10 +27,6 @@ public interface AuthController {
 	@GetMapping("/hello")
 	Mono<String> hello();
 
-    @PostMapping("/signup")
-    Mono<ResponseEntity<Integer>> register(
-            @RequestBody @Valid User user) throws InvalidInputException;
-
     @PostMapping("/login")
     @ResponseStatus(OK)
     Mono<LoginResponse> authenticate(
@@ -41,13 +38,26 @@ public interface AuthController {
     Mono<String> hashPassword(
             @RequestBody String password);
 
+    @GetMapping("/users")
+    Mono<Page<User>> getUsers(Pageable pageable);
+    
     @ResponseStatus(ACCEPTED)
     @DeleteMapping("/delete")
     Mono<Void> deleteUser(
             @RequestParam @NotBlank @Email String email)
             throws NotFoundException;
     
-    @GetMapping("/users")
-    Mono<Page<User>> getUsers(Pageable pageable);
+    @PostMapping("/signup")
+    Mono<ResponseEntity<User>> register(
+            @RequestBody @Valid User user) throws InvalidInputException;
+
+    // Crea l'utente e restituisce il risultato senza pubblicare eventi per Teach.
+    @PostMapping("/sync-signup")
+    @ResponseStatus(CREATED)
+    Mono<User> registerSync(
+            @RequestBody @Valid User user,
+            @RequestParam(value = "delay", required = false, defaultValue = "0") int delay,
+            @RequestParam(value = "faultPercent", required = false, defaultValue = "0") int faultPercent
+    		) throws InvalidInputException, InterruptedException;
     
 }

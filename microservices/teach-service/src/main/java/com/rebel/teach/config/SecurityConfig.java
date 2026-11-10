@@ -56,36 +56,21 @@ public class SecurityConfig {
         		// =========================
                 // PUBLIC
                 // =========================
-                .pathMatchers(
-                    "/api/teach/lesson/types"
-                ).permitAll()
-
-                .pathMatchers(
-                    "/**/hello"
-                ).permitAll()
-
-                .pathMatchers(
-                    "/api/teach/h2-console/**"
-                ).permitAll()
-
-                .pathMatchers(
-                    "/actuator/health"
-                ).permitAll()
-
+                .pathMatchers("/api/lesson/types").permitAll()
+                .pathMatchers("/api/hello").permitAll()
+                .pathMatchers("/admin/api/hello").permitAll()
+                .pathMatchers("/h2-console/**").permitAll()
+                .pathMatchers("/actuator/**").permitAll()
                 
                 // =========================
                 // ADMIN
                 // =========================
-                .pathMatchers(
-                		"/api/teach/admin/**"
-                ).hasRole("ADMIN")
+                .pathMatchers("/admin/api/**").hasRole("ADMIN")
 
                 // =========================
                 // TEACHER
                 // =========================
-                .pathMatchers(
-                		"/api/teach/**"
-                ).hasRole("TEACHER")
+                .pathMatchers("/api/**").hasRole("TEACHER")
 
                 // =========================
                 // OTHERS

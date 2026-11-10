@@ -1,5 +1,5 @@
 package com.rebel.api.core.auth;
 
-public record LoginResponse(String token, Integer expiresIn) {
+public record LoginResponse(String token, Integer expiresIn, String serviceAddress) {
 
 }

@@ -1,0 +1,11 @@
+spring:
+  output:
+    ansi:
+      enabled: ALWAYS  # Abilita i colori ANSI nei log della console
+
+logging:
+  level:
+    root: INFO  # Imposta il livello minimo di logging per tutta l'applicazione
+    org.springframework.security: TRACE
+    org.springframework.web.reactive: DEBUG
+    org.springframework.web.server.adapter.HttpWebHandlerAdapter: DEBUG

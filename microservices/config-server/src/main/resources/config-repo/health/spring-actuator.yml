@@ -1,0 +1,11 @@
+management:
+  endpoints:
+    web:
+      # Espone gli endpoint Actuator tramite HTTP.
+      exposure:
+        include: "*"
+
+  endpoint:
+    health:
+      # Mostra i dettagli degli health indicator, inclusi quelli di Resilience4j.
+      show-details: always

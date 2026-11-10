@@ -1,0 +1,11 @@
+# Configura l'accesso all'endpoint Actuator di Spring Cloud Gateway.
+# https://docs.spring.io/spring-cloud-gateway/reference/spring-cloud-gateway-server-webflux/actuator-api.html
+management:
+  endpoint:
+    gateway:
+      # Consente di consultare rotte e filtri, senza permettere di creare
+      # o eliminare rotte né di aggiornare la cache delle rotte via Actuator.
+      # Per accedere via HTTP a /actuator/gateway, includere anche gateway
+      # in management.endpoints.web.exposure.include. Il frammento
+      # spring-actuator.yml espone già tutti gli endpoint disponibili.
+      access: read-only

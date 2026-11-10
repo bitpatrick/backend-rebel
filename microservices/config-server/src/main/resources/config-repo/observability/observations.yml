@@ -1,0 +1,6 @@
+management:
+  observations:
+    annotations:
+      # Abilita il supporto alle annotazioni di osservabilità,
+      # come @Observed, @Timed e @Counted.
+      enabled: true

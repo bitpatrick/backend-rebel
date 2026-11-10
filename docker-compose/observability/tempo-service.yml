@@ -1,0 +1,18 @@
+services:
+  # ==========================================================
+  # TEMPO
+  # ==========================================================
+  # Backend per le distributed traces.
+  #
+  # OTel Collector → Tempo
+  # ==========================================================
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    command:
+      - "-config.file=/etc/tempo/tempo-config.yml"
+    volumes:
+      - ./tempo-config.yml:/etc/tempo/tempo-config.yml
+    ports:
+      # API / Query
+      - "3200:3200"

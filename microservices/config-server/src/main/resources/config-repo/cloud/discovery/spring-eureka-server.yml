@@ -1,0 +1,15 @@
+eureka:
+  instance:
+    # Hostname con cui il server Eureka è identificato nella rete
+    hostname: discovery-service
+
+  client:
+    # Il server Eureka non si registra come client presso un altro server Eureka
+    registerWithEureka: false
+
+    # Il server Eureka non scarica il registro dei servizi da altri server Eureka
+    fetchRegistry: false
+
+    serviceUrl:
+      # URL del registro Eureka, costruito usando hostname e porta del server
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/

@@ -33,6 +33,11 @@
 
 	<dependencies>
 
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webclient</artifactId>
+        </dependency>
+
 		<!-- ========================================================
          INTERNAL MODULES
          ======================================================== -->
@@ -95,6 +100,37 @@
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-config</artifactId>
 		</dependency>
+		
+		<!-- The APIs implemented in Spring Cloud CircuitBreaker live in Spring Cloud Commons.
+		The usage documentation for these APIs are located in the Spring Cloud Commons documentation: 
+		https://docs.spring.io/spring-cloud-commons/docs/current/reference/html/#spring-cloud-circuit-breaker -->
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
+			<exclusions>
+		        <exclusion>
+		            <groupId>io.github.resilience4j</groupId>
+		            <artifactId>resilience4j-spring-boot3</artifactId>
+		        </exclusion>
+		    </exclusions>
+		</dependency>
+		
+		<!-- Spring Cloud Circuit Breaker Resilience4j includes auto-configuration to setup metrics collection as long as the right dependencies are on the classpath -->
+		<!-- Auto-configurazione compatibile con Spring Boot 4. -->
+		<dependency>
+			<groupId>io.github.resilience4j</groupId>
+			<artifactId>resilience4j-spring-boot4</artifactId>
+			<version>${resilience4j.version}</version>
+		</dependency>
+
+		<!-- To enable metric collection you must include 
+		org.springframework.boot:spring-boot-starter-actuator, 
+		and io.github.resilience4j:resilience4j-micrometer -->
+		<dependency>
+			<groupId>io.github.resilience4j</groupId>
+			<artifactId>resilience4j-micrometer</artifactId>
+		</dependency>
+		
 		
 		<!-- ========================================================
          TRACING
@@ -160,21 +196,29 @@
 
 
 		<!-- ========================================================
-         TEST
-         ======================================================== -->
-
-		<!-- Spring Web Flux -->
+		     TEST
+		     ======================================================== -->
+		
+		<!-- Source: https://mvnrepository.com/artifact/com.squareup.okhttp3/mockwebserver -->
+		<dependency>
+		    <groupId>com.squareup.okhttp3</groupId>
+		    <artifactId>mockwebserver</artifactId>
+		    <version>5.5.1</version>
+		    <scope>test</scope>
+		</dependency>
+		
+		<!-- Spring WebFlux Test -->
 		<dependency>
 		    <groupId>org.springframework.boot</groupId>
 		    <artifactId>spring-boot-starter-webflux-test</artifactId>
 		    <scope>test</scope>
 		</dependency>
-
+		
 		<!-- Spring Cloud Stream Test Binder -->
 		<dependency>
-			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-stream-test-binder</artifactId>
-			<scope>test</scope>
+		    <groupId>org.springframework.cloud</groupId>
+		    <artifactId>spring-cloud-stream-test-binder</artifactId>
+		    <scope>test</scope>
 		</dependency>
 		
 		<!-- ========================================================

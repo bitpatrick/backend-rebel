@@ -1,0 +1,31 @@
+services:
+  # ==========================================================
+  # TEACH SERVICE
+  # ==========================================================
+  teach-service:
+    build:
+      # Percorso del Dockerfile del microservizio
+      context: ../microservices/teach-service
+
+    container_name: teach-service
+
+    volumes:
+      # Monta la configurazione Logback personalizzata
+      - ./log/logback-spring.xml:/app/config/logback-spring.xml
+
+    depends_on:
+      config-server:
+        # Attende che il Config Server sia operativo
+        condition: service_healthy
+
+      discovery-service:
+        # Attende che Eureka sia operativo
+        condition: service_healthy
+
+      rabbitmq:
+        # Attende che RabbitMQ sia operativo
+        condition: service_healthy
+
+      otel-collector:
+        # Attende l'avvio del container Collector
+        condition: service_started

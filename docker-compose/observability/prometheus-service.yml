@@ -1,0 +1,18 @@
+services:
+  # ==========================================================
+  # PROMETHEUS
+  # ==========================================================
+  # Backend per le metrics.
+  #
+  # OTel Collector espone le metrics su :8889
+  # Prometheus le raccoglie tramite scrape.
+  # ==========================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus-config.yml"
+    volumes:
+      - ./prometheus-config.yml:/etc/prometheus/prometheus-config.yml
+    ports:
+      - "9090:9090"

@@ -1,0 +1,12 @@
+# Importare questo frammento nella configurazione dei servizi che devono
+# mostrare lo stato dei propri Circuit Breaker in /actuator/health.
+management:
+  health:
+    circuitbreakers:
+      # Abilita l'indicatore di salute di Resilience4j in Actuator.
+      # Per includere una singola istanza, impostare anche
+      # registerHealthIndicator: true sotto resilience4j.circuitbreaker.instances.<nome>.
+      # Se questa proprietà è disabilitata o assente, Actuator non riporta
+      # lo stato dei circuiti, che continuano a funzionare normalmente.
+      # La visibilità dei dettagli dipende da management.endpoint.health.show-details.
+      enabled: true

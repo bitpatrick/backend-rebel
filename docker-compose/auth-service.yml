@@ -1,0 +1,51 @@
+services:
+  # ==========================================================
+  # AUTH SERVICE
+  # ==========================================================
+  auth-service:
+    build:
+      # Percorso del Dockerfile del microservizio
+      context: ../microservices/auth-service
+
+    container_name: auth-service
+
+    volumes:
+      # Monta la configurazione Logback personalizzata
+      - ./log/logback-spring.xml:/app/config/logback-spring.xml
+
+    environment:
+      # ======================================================
+      # OPENTELEMETRY
+      # ======================================================
+
+      # Endpoint OTLP HTTP dell'OpenTelemetry Collector
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+
+      # Abilita l'esportazione di traces, metrics e logs
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+
+      # Abilita l'SDK OpenTelemetry
+      OTEL_SDK_DISABLED: false
+
+    depends_on:
+      config-server:
+        # Attende che il Config Server sia operativo
+        condition: service_healthy
+
+      discovery-service:
+        # Attende che Eureka sia operativo
+        condition: service_healthy
+
+      rabbitmq:
+        # Attende che RabbitMQ sia operativo
+        condition: service_healthy
+
+      otel-collector:
+        # Attende l'avvio del container Collector
+        condition: service_started
+
+      mongodb:
+        # Attende che MongoDB sia operativo
+        condition: service_healthy

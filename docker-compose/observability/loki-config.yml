@@ -1,0 +1,49 @@
+# ==========================================================
+# LOKI CONFIGURATION
+# ==========================================================
+
+# Disabilita l'autenticazione; adatto a un ambiente locale di sviluppo.
+auth_enabled: false
+
+server:
+  # Porta HTTP utilizzata da Loki per ricevere richieste e query.
+  http_listen_port: 3100
+
+common:
+  # Directory principale per i dati di Loki.
+  path_prefix: /loki
+
+  storage:
+    filesystem:
+      # Directory in cui Loki salva i blocchi di log.
+      chunks_directory: /loki/chunks
+
+      # Directory per le regole di elaborazione e alerting.
+      rules_directory: /loki/rules
+
+  # Numero di copie dei dati: 1 per un ambiente locale.
+  replication_factor: 1
+
+  ring:
+    kvstore:
+      # Mantiene le informazioni del ring in memoria.
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      # TSDB è il database degli indici utilizzato da Loki.
+      store: tsdb
+
+      # Archivia indici e blocchi nel filesystem locale.
+      object_store: filesystem
+
+      # Versione dello schema utilizzato per gli indici.
+      schema: v13
+
+      index:
+        # Prefisso dei file degli indici.
+        prefix: index_
+
+        # Crea un nuovo periodo di indice ogni 24 ore.
+        period: 24h

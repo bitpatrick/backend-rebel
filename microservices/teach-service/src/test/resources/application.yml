@@ -1,20 +1,32 @@
+# Application configuration for testing purposes
 spring:
   config:
     import:
-      # configuration
-      - classpath:configuration/spring-app.yml
-      - classpath:configuration/spring-config-disable.yml
-      - classpath:configuration/spring-eureka-client-disable.yml
-      - classpath:configuration/spring-log.yml
-      - classpath:configuration/spring-metrics-disable.yml
-      - classpath:configuration/spring-web.yml
+      # app
+      - classpath:config/app/spring-app.yml
 
-      # domain
-      - classpath:domain/lessons.yml
-
-      # security
-      - classpath:security/jwt.yml
+      # cloud
+      - classpath:config/cloud/spring-cloud-stream.yml
+      - classpath:config/cloud/spring-config-client-disable.yml
+      - classpath:config/cloud/spring-eureka-client-disable.yml
 
       # db
-      - classpath:db/h2-console.yml
-      - classpath:db/spring-db-h2.yml
+      - classpath:config/db/init-sql.yml
+      - classpath:config/db/spring-data-jpa.yml
+      - classpath:config/db/spring-h2-datasource.yml
+      - classpath:config/db/spring-show-sql-messages-disable.yml
+
+      # domain
+      - classpath:config/domain/lessons.yml
+
+      # log
+      - classpath:config/log/spring-log.yml
+
+      # observability
+      - classpath:config/observability/spring-observability-disable.yml
+
+      # security
+      - classpath:config/security/jwt.yml
+
+      # web
+      - classpath:config/web/spring-web.yml

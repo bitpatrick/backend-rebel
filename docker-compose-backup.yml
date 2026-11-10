@@ -1,0 +1,364 @@
+# ============================================================
+# DOCKER COMPOSE - GYM APP
+# ============================================================
+
+services:
+
+  # ==========================================================
+  # RABBITMQ
+  # ==========================================================
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: rabbitmq
+
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+
+  # ==========================================================
+  # TEMPO
+  # ==========================================================
+  # Backend per le distributed traces.
+  #
+  # OTel Collector → Tempo
+  # ==========================================================
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+
+    command:
+      - "-config.file=/etc/tempo/tempo.yml"
+
+    volumes:
+      - ./tempo.yml:/etc/tempo/tempo.yml
+
+    ports:
+      # API / Query
+      - "3200:3200"
+
+
+  # ==========================================================
+  # PROMETHEUS
+  # ==========================================================
+  # Backend per le metrics.
+  #
+  # OTel Collector espone le metrics su :8889
+  # Prometheus le raccoglie tramite scrape.
+  # ==========================================================
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+
+    ports:
+      - "9090:9090"
+
+
+  # ==========================================================
+  # LOKI
+  # ==========================================================
+  # Backend per i logs.
+  #
+  # OTel Collector → Loki
+  # ==========================================================
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+
+    command:
+      - "-config.file=/etc/loki/loki.yml"
+
+    volumes:
+      - ./loki.yml:/etc/loki/loki.yml
+      - loki-data:/loki
+
+    ports:
+      - "3100:3100"
+
+
+  # ==========================================================
+  # OPENTELEMETRY COLLECTOR
+  # ==========================================================
+  #
+  # Riceve:
+  #
+  #   OTLP traces
+  #   OTLP metrics
+  #   OTLP logs
+  #
+  # e li inoltra:
+  #
+  #   traces → Tempo
+  #   metrics → Prometheus
+  #   logs → Loki
+  # ==========================================================
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+
+    command:
+      - "--config=/etc/otelcol-contrib/config.yaml"
+
+    volumes:
+      - ./otel-collector-config.yml:/etc/otelcol-contrib/config.yaml
+
+    ports:
+      # OTLP gRPC
+      - "4317:4317"
+
+      # OTLP HTTP
+      - "4318:4318"
+
+      # Prometheus exporter
+      - "8889:8889"
+
+    depends_on:
+      - tempo
+      - prometheus
+      - loki
+
+
+  # ==========================================================
+  # GRAFANA
+  # ==========================================================
+  #
+  # Visualizzazione:
+  #
+  #   Prometheus → Metrics
+  #   Tempo      → Traces
+  #   Loki       → Logs
+  # ==========================================================
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+
+    ports:
+      - "3000:3000"
+
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+
+
+  # ==========================================================
+  # CONFIG SERVER
+  # ==========================================================
+
+  config-server:
+    build:
+      context: ./microservices/config-server
+
+    container_name: config-server
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://localhost:${CONFIG_PORT:-8888}/actuator/health"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  # ==========================================================
+  # DISCOVERY SERVICE - EUREKA
+  # ==========================================================
+
+  discovery-service:
+    build:
+      context: ./microservices/discovery-service
+
+    container_name: discovery-service
+
+    ports:
+      # Eureka Dashboard → http://localhost:8761/
+      - "8761:8080"
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://localhost:${DISCOVERY_PORT:-8080}/actuator/health"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+    depends_on:
+      config-server:
+        condition: service_healthy
+
+
+  # ==========================================================
+  # GATEWAY
+  # ==========================================================
+
+  gateway-service:
+
+    volumes:
+      - ./config/logback-spring.xml:/app/config/logback-spring.xml
+
+    build:
+      context: ./microservices/gateway-service
+
+    container_name: gateway-service
+
+    environment:
+
+      # ------------------------------------------------------
+      # OpenTelemetry
+      # ------------------------------------------------------
+
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      OTEL_SDK_DISABLED: false
+
+    ports:
+      - "8080:8080"
+
+    depends_on:
+      config-server:
+        condition: service_healthy
+
+      discovery-service:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
+      otel-collector:
+        condition: service_started
+
+
+  # ==========================================================
+  # AUTH SERVICE
+  # ==========================================================
+
+  auth-service:
+
+    volumes:
+      - ./config/logback-spring.xml:/app/config/logback-spring.xml
+
+    build:
+      context: ./microservices/auth-service
+
+    container_name: auth-service
+
+    environment:
+
+      # ------------------------------------------------------
+      # OpenTelemetry
+      # ------------------------------------------------------
+
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      OTEL_SDK_DISABLED: false
+
+    depends_on:
+
+      config-server:
+        condition: service_healthy
+
+      discovery-service:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
+      otel-collector:
+        condition: service_started
+
+      mongodb:
+        condition: service_healthy
+
+  # ==========================================================
+  # TEACH SERVICE
+  # ==========================================================
+
+  teach-service:
+
+    volumes:
+      - ./config/logback-spring.xml:/app/config/logback-spring.xml
+
+    build:
+      context: ./microservices/teach-service
+
+    container_name: teach-service
+
+    depends_on:
+
+      config-server:
+        condition: service_healthy
+
+      discovery-service:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
+      otel-collector:
+        condition: service_started
+
+  # ==========================================================
+  # MONGODB
+  # ==========================================================
+
+  mongodb:
+    image: mongo:6.0.4
+    container_name: mongodb
+    mem_limit: 512m
+    ports:
+      - "27017:27017"
+    command: mongod
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.stats().ok"]
+      interval: 5s
+      timeout: 2s
+      retries: 60
+
+  # ============================================================
+  # VOLUMES
+  # ============================================================
+
+volumes:
+
+  # Persistenza dei dati di Loki
+  loki-data:
+  grafana-data:

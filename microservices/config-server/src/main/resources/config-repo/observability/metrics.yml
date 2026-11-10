@@ -1,0 +1,9 @@
+management:
+  otlp:
+    metrics:
+      export:
+        # Spring Boot invia le metriche al Collector tramite OTLP su HTTP.
+        # Esempi: memoria heap della JVM, contatori e tempi delle richieste.
+        # Il Collector espone poi le metriche su un proprio endpoint,
+        # da cui Prometheus le legge periodicamente.
+        url: http://otel-collector:4318/v1/metrics

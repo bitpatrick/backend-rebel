@@ -31,6 +31,7 @@ public class LessonEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     
+    @Column(nullable = false)
     private String name;
     
     // Teacher a cui appartiene la lezione
@@ -38,6 +39,7 @@ public class LessonEntity {
     @JoinColumn(name = "teacher_id", nullable = false)
     private TeacherEntity teacher;
 
+    @Column(nullable = false)
     private LocalDate date;
 
     @Column(columnDefinition = "TIME(0)")
@@ -45,9 +47,5 @@ public class LessonEntity {
 
     @Column(columnDefinition = "TIME(0)")
     private LocalTime endTime;
-    
-    public static enum LessonType {
-    	GYM, DANCE
-    }
     
 }

@@ -2,6 +2,7 @@ package com.rebel.util;
 
 import java.lang.reflect.Method;
 
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -75,6 +76,31 @@ public final class UrlBuilder {
             throw new IllegalArgumentException(
                     "Method " + methodName +
                     " is not annotated with @PostMapping"
+            );
+        }
+
+        return baseUrl + mapping.value()[0];
+    }
+    
+    public String buildDeleteUrl(
+            Class<?> controllerInterface,
+            String methodName,
+            Class<?>... parameterTypes) throws Exception {
+
+        checkBaseUrl();
+
+        Method method = controllerInterface.getMethod(
+                methodName,
+                parameterTypes
+        );
+
+        DeleteMapping mapping =
+                method.getAnnotation(DeleteMapping.class);
+
+        if (mapping == null) {
+            throw new IllegalArgumentException(
+                    "Method " + methodName +
+                    " is not annotated with @DeleteMapping"
             );
         }
 

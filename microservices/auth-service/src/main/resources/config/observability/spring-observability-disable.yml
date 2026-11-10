@@ -1,0 +1,15 @@
+management:
+  opentelemetry:
+    enabled: false  # Disabilita l'integrazione OpenTelemetry di Spring Boot
+
+  tracing:
+    enabled: false  # Disabilita la raccolta delle tracce distribuite
+
+  otlp:
+    tracing:
+      export:
+        enabled: false  # Disabilita l'esportazione delle tracce verso OTLP
+
+    metrics:
+      export:
+        enabled: false  # Disabilita l'esportazione delle metriche verso OTLP

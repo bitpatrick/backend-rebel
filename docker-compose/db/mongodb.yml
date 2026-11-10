@@ -1,0 +1,24 @@
+services:
+  # ==========================================================
+  # MONGODB
+  # ==========================================================
+  mongodb:
+    image: mongo:6.0.4
+    container_name: mongodb
+
+    # Limita la memoria utilizzabile dal container
+    mem_limit: 512m
+
+    ports:
+      # Espone MongoDB sulla porta 27017 del PC
+      - "27017:27017"
+
+    # Avvia MongoDB
+    command: mongod
+
+    healthcheck:
+      # Verifica che MongoDB risponda alle query
+      test: ["CMD", "mongosh", "--eval", "db.stats().ok"]
+      interval: 5s
+      timeout: 2s
+      retries: 60

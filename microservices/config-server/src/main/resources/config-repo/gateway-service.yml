@@ -1,16 +1,26 @@
 spring:
   config:
     import:
+      # discovery
+      - classpath:config-repo/cloud/discovery/spring-eureka-client-only-fetch.yml
 
-      # common
-      - classpath:config-repo/common/spring-eureka-client-only-fetch.yml
-      - classpath:config-repo/common/spring-web.yml
-      - classpath:config-repo/common/tracing.yml
-
-      # service
-      - classpath:config-repo/gateway-service/spring-gateway-routes.yml
-      - classpath:config-repo/gateway-service/spring-actuator-gateway.yml
+      # health
+      - classpath:config-repo/health/spring-actuator.yml
+      - classpath:config-repo/health/spring-actuator-endpoint-gateway.yml
 
       # log
       - classpath:config-repo/log/spring-log-gateway.yml
       - classpath:config-repo/log/spring-log-tracing.yml
+
+      # observability
+      - classpath:config-repo/observability/logging.yml
+      - classpath:config-repo/observability/metrics.yml
+      - classpath:config-repo/observability/observations.yml
+      - classpath:config-repo/observability/spring-boot-reactive-context-propagation.yml
+      - classpath:config-repo/observability/tracing.yml
+
+      # routes
+      - classpath:config-repo/routes/spring-cloud-routes.yml
+
+      # web
+      - classpath:config-repo/web/spring-web.yml

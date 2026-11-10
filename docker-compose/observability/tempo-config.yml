@@ -1,0 +1,25 @@
+server:
+  # Porta HTTP utilizzata da Tempo per le API e le query.
+  http_listen_port: 3200
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          # Endpoint gRPC per ricevere le trace dall'OTel Collector.
+          endpoint: 0.0.0.0:4317
+        http:
+          # Endpoint HTTP per ricevere le trace dall'OTel Collector.
+          endpoint: 0.0.0.0:4318
+
+storage:
+  trace:
+    # Archivia le trace localmente, senza utilizzare un database esterno.
+    backend: local
+    local:
+      # Directory in cui vengono salvate le trace.
+      path: /var/tempo/traces
+    wal:
+      # Directory del Write-Ahead Log, usato per gestire i dati prima della persistenza.
+      path: /var/tempo/wal

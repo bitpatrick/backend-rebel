@@ -1,12 +1,14 @@
 package com.rebel.auth;
 
 import static com.rebel.api.core.event.Type.CREATE;
+import static com.rebel.api.core.event.Type.DELETE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.http.HttpStatus.UNPROCESSABLE_CONTENT;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 import org.junit.jupiter.api.BeforeAll;
@@ -40,8 +42,10 @@ import com.rebel.api.core.auth.User;
 import com.rebel.api.core.event.Event;
 import com.rebel.auth.controller.AuthControllerImpl;
 import com.rebel.auth.entity.UserEntity;
+import com.rebel.auth.mapper.UserMapper;
 import com.rebel.auth.repo.UserRepository;
 import com.rebel.auth.service.SequenceGeneratorService;
+import com.rebel.util.ServiceUtil;
 import com.rebel.util.UrlBuilder;
 
 import reactor.test.StepVerifier;
@@ -57,6 +61,12 @@ import tools.jackson.databind.ObjectMapper;
 @TestMethodOrder(OrderAnnotation.class)
 class AuthServiceApplicationTests extends MyNoSqlTestBase {
 
+	@Autowired
+	ServiceUtil serviceUtil;
+	
+	@Autowired
+	UserMapper userMapper;
+	
 	@Autowired
 	ObjectMapper objectMapper;
 	
@@ -86,6 +96,7 @@ class AuthServiceApplicationTests extends MyNoSqlTestBase {
     String loginUrl;
     String helloUrl;
     String usersUrl;
+    String deleteUserUrl;
     
     // =========================================================
     // BUILD URLS
@@ -118,6 +129,12 @@ class AuthServiceApplicationTests extends MyNoSqlTestBase {
                 AuthController.class,
                 "getUsers",
                 Pageable.class
+        );
+        
+        deleteUserUrl = urlBuilder.buildDeleteUrl(
+                AuthController.class,
+                "deleteUser",
+                String.class
         );
         
     }
@@ -210,23 +227,23 @@ class AuthServiceApplicationTests extends MyNoSqlTestBase {
         .contentType(APPLICATION_JSON)
         .bodyValue(adminLoginUser)
         .exchange()
-        .expectStatus().isBadRequest()
+        .expectStatus().isEqualTo(UNPROCESSABLE_CONTENT)
         .expectBody()
         .consumeWith(response -> {
             System.out.println(new String(response.getResponseBody()));
         })
         .jsonPath("$.message")
-        .isEqualTo("Invalid Password");
+        .isEqualTo("Invalid password");
     	
     }
     
     // =========================================================
-    // GENERATE TOKENS
+    // LOGIN + GENERATE TOKENS
     // =========================================================
     
     @Test
     @Order(3)
-    void generateTokens() {
+    void login_and_generateTokens() {
     	
     	LoginUser adminLoginUser = new LoginUser(
         		"admin@rebel.com",
@@ -318,14 +335,34 @@ class AuthServiceApplicationTests extends MyNoSqlTestBase {
     
     @Test
     @Order(5)
+    void givenExistingUser_whenDeletingUser_thenUserIsDeleted() {
+
+        // Given: utente creato nel test @Order(4)
+        String email = "giuseppe.verdi@rebel.com";
+
+        // When: elimina l'utente tramite API
+        client
+            .delete()
+            .uri(uriBuilder -> uriBuilder
+                .path(deleteUserUrl)
+                .queryParam("email", email)
+                .build())
+            .header("Authorization", "Bearer " + adminToken)
+            .exchange()
+            .expectStatus().isAccepted();
+
+        // Then: verifica che l'utente non esista più
+        StepVerifier.create(userRepository.findByEmail(email))
+            .verifyComplete();
+        
+    }
+    
+    @Test
+    @Order(6)
     void givenValidRequest_whenCreatingTeacher_thenTeacherIsCreated() {
 
         // given
-//    	doReturn(true)
-//    	.when(streamBridge)
-//    	.send( eq("teacher-created-event-out-0"), any() );
-    	
-    	when(streamBridge.send(eq("teacher-created-event-out-0"), any())).thenReturn(true);
+    	when(streamBridge.send(eq("teacher-event-out-0"), any())).thenReturn(true);
 
         String email = "paola.neri@rebel.com";
         String name = "Paola";
@@ -343,7 +380,7 @@ class AuthServiceApplicationTests extends MyNoSqlTestBase {
                 """;
 
         // when
-        Integer teacherId = client
+        User user = client
             .post()
             .uri(signupUrl)
             .contentType(APPLICATION_JSON)
@@ -351,13 +388,13 @@ class AuthServiceApplicationTests extends MyNoSqlTestBase {
             .header("Authorization", "bearer " + adminToken)
             .exchange()
             .expectStatus().isAccepted()
-            .expectBody(new ParameterizedTypeReference<Integer>() {})
+            .expectBody(new ParameterizedTypeReference<User>() {})
             .returnResult()
             .getResponseBody();
 
         // then
         verify(streamBridge).send(
-            eq("teacher-created-event-out-0"),
+            eq("teacher-event-out-0"),
             argThat(message -> {
             	
             	GenericMessage<Event<Integer, User>> genericMessage = (GenericMessage<Event<Integer, User>>) message;
@@ -366,18 +403,74 @@ class AuthServiceApplicationTests extends MyNoSqlTestBase {
                 User teacher = genericMessage.getPayload().data();
 
                 return event.type() == CREATE
-                    && event.key().equals(teacherId)
-                    && teacher.id().equals(teacherId)
+                    && event.key().equals(user.id())
+                    && teacher.id().equals(user.id())
                     && teacher.name().equals(name)
                     && teacher.surname().equals(surname)
                     && teacher.email().equals(email)
                     && teacher.role().equals(role);
             })
         );
+        
     }
     
     @Test
-    @Order(6)
+    @Order(7)
+    void givenValidRequest_whenDeleteTeacher_thenTeacherIsDeleted() {
+
+        // given
+        when(streamBridge.send(eq("teacher-event-out-0"), any()))
+                .thenReturn(true);
+
+        String email = "paola.neri@rebel.com";
+        
+        UserEntity user = userRepository.findByEmail(email).block();
+        assertThat(user).isNotNull();
+        
+        int id = user.getId().intValue();
+        String name = user.getName();
+        String surname = user.getSurname();
+        String role = user.getRole();
+
+        // when
+        client
+            .delete()
+            .uri(uriBuilder -> uriBuilder
+                    .path(deleteUserUrl)
+                    .queryParam("email", email)
+                    .build())
+            .header("Authorization", "Bearer " + adminToken)
+            .exchange()
+            .expectStatus().isAccepted();
+
+        // then: verifica l'evento inviato
+        verify(streamBridge).send(
+            eq("teacher-event-out-0"),
+            argThat(message -> {
+                GenericMessage<Event<Integer, User>> genericMessage =
+                        (GenericMessage<Event<Integer, User>>) message;
+
+                Event<Integer, User> event = genericMessage.getPayload();
+                User teacher = event.data();
+
+                return event.type() == DELETE
+                        && event.key().equals(id)
+                        && teacher.id().equals(id)
+                        && teacher.name().equals(name)
+                        && teacher.surname().equals(surname)
+                        && teacher.email().equals(email)
+                        && teacher.role().equals(role);
+            })
+        );
+
+        // Verifica che l'utente sia stato eliminato
+        StepVerifier.create(userRepository.findByEmail(email))
+                .verifyComplete();
+    }
+
+    
+    @Test
+    @Order(8)
     void givenUsers_whenGetUsers_thenReturnsUsers() {
 
         client
@@ -400,6 +493,5 @@ class AuthServiceApplicationTests extends MyNoSqlTestBase {
             ;
         
     }
-
-
+    
 }

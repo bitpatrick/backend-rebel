@@ -1,0 +1,54 @@
+services:
+
+  # ==========================================================
+  # OPENTELEMETRY COLLECTOR
+  # ==========================================================
+  #
+  # Riceve:
+  #
+  #   OTLP traces
+  #   OTLP metrics
+  #   OTLP logs
+  #
+  # e li inoltra:
+  #
+  #   traces → Tempo
+  #   metrics → Prometheus
+  #   logs → Loki
+  # ==========================================================
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+
+    command:
+      - "--config=/etc/otelcol-contrib/config.yaml"
+
+    volumes:
+      - ./otel-collector-config.yml:/etc/otelcol-contrib/config.yaml
+
+    ports:
+      # OTLP gRPC
+      - "4317:4317"
+
+      # OTLP HTTP
+      - "4318:4318"
+
+      # Prometheus exporter
+      - "8889:8889"
+
+    depends_on:
+      - tempo
+      - prometheus
+      - loki
+
+
+  # ============================================================
+  # VOLUMES
+  # ============================================================
+
+volumes:
+
+  # Persistenza dei dati di Loki
+  loki-data:
+  grafana-data:

@@ -3,6 +3,9 @@ package com.rebel.api.core.teach;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,12 +44,6 @@ public interface TeachAdminController {
             Integer id)
             throws NotFoundException;
 	
-	@PostMapping("/teachers")
-    @ResponseStatus(HttpStatus.CREATED)
-	public Mono<Integer> createTeacher(
-            @Valid @RequestBody Teacher request)
-            throws InvalidInputException;
-	
 	@PutMapping("/teachers/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
 	public Mono<Void> updateTeacher(
@@ -79,5 +76,19 @@ public interface TeachAdminController {
             @Positive(message = "Lesson ID must be a positive integer")
             Integer id)
             throws NotFoundException;
-
+	
+	@PostMapping("/teachers")
+    @ResponseStatus(HttpStatus.CREATED)
+	public Mono<Integer> createTeacher(
+            @Valid @RequestBody Teacher request)
+            throws InvalidInputException;
+	
+	@PostMapping("/teachers-sync")
+	public Mono<ResponseEntity<Teacher>> createTeacherSync(
+			@RequestParam(value = "delay", required = false, defaultValue = "0") int delay,
+			@RequestParam(value = "faultPercent", required = false, defaultValue = "0") int faultPercent,
+			@AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody CreateTeacherRequest request)
+            throws InvalidInputException;
+	
 }

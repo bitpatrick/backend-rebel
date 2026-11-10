@@ -1,0 +1,9 @@
+# https://docs.spring.io/spring-boot/reference/actuator/observability.html#actuator.observability.context-propagation
+# Observability support relies on the Context Propagation library 
+# for forwarding the current observation across threads 
+# and reactive pipelines. 
+# By default, ThreadLocal values are not automatically 
+# reinstated in reactive operators.
+spring:
+  reactor:
+    context-propagation: auto

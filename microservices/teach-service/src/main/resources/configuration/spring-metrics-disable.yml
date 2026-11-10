@@ -1,7 +1,0 @@
-management:
-  opentelemetry:
-    enabled: false
-  otlp:
-    metrics:
-      export:
-        enabled: false

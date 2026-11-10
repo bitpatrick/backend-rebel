@@ -1,13 +1,18 @@
 spring:
   config:
     import:
-      # common
-      - classpath:config-repo/common/spring-actuator.yml
-      - classpath:config-repo/common/spring-eureka-server.yml
-      - classpath:config-repo/common/spring-web.yml
+
+      # spring cloud discovery server
+      - classpath:config-repo/cloud/discovery/spring-eureka-server.yml
+
+      # health
+      - classpath:config-repo/health/spring-actuator.yml
+
+      # log
+      - classpath:config-repo/log/spring-log.yml
 
       # security
       - classpath:config-repo/security/spring-security-discovery.yml
 
-      # log
-      - classpath:config-repo/log/spring-log.yml
+      # web
+      - classpath:config-repo/web/spring-web.yml

@@ -22,6 +22,11 @@
 
 	<dependencies>
 
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webclient</artifactId>
+        </dependency>
+
 		<!-- ========================================================
              INTERNAL MODULES
              ======================================================== -->
@@ -73,7 +78,7 @@
 		<!-- ========================================================
              SPRING CLOUD
              ======================================================== -->
-		
+             
 		<!-- Eureka Client -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
@@ -195,6 +200,7 @@
 			<artifactId>testcontainers-mongodb</artifactId>
 			<scope>test</scope>
 		</dependency>
+		
 		
 	</dependencies>
 
