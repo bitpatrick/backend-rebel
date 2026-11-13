@@ -43,3 +43,6 @@ resilience4j:
 
           # Risposta HTTP 404 restituita da un servizio chiamato tramite WebClient.
           - org.springframework.web.reactive.function.client.WebClientResponseException$NotFound
+
+          # Risposta HTTP 400 restituita da un servizio chiamato tramite WebClient.
+          - org.springframework.web.reactive.function.client.WebClientResponseException$BadRequest

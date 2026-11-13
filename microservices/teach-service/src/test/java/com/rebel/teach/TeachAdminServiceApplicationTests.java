@@ -514,8 +514,67 @@ class TeachAdminServiceApplicationTests {
         assertThat(healtAfter.required("status").stringValue()).as("Aggregate state of the Circuit Breakers").isEqualTo("UP");
         assertThat(healtAfter.required("details").required(CIRCUIT_BREAKER_NAME).required("details").required("state").stringValue()).as("State of the circuit breaker").isEqualTo("CLOSED");
         assertThat(healtAfter.required("details").required(CIRCUIT_BREAKER_NAME).required("details").required("state").stringValue()).as("State of the circuit breaker").isEqualTo("CLOSED");
-    	
+
     }
+
+	@Order(12)
+    @Test
+    void createSyncTeacherReturnsNotFoundWithoutCountingFailure_whenAuthReturns404() throws InterruptedException {
+		assertAuthDomainErrorIsPropagatedAndIgnored(404, "Not Found", "Role not found", "mario.rossi@rebel.com");
+    }
+
+	@Order(13)
+    @Test
+    void createSyncTeacherReturnsBadRequestWithoutCountingFailure_whenAuthReturns400() throws InterruptedException {
+		assertAuthDomainErrorIsPropagatedAndIgnored(400, "Bad Request", "User already exists", "luigi.verdi@rebel.com");
+    }
+
+	/**
+	 * Auth Service risponde con un errore di dominio: Teach Service deve restituire lo stesso status
+	 * con il messaggio originale, senza fallback, senza salvare e senza registrare la chiamata nel circuit breaker.
+	 */
+	private void assertAuthDomainErrorIsPropagatedAndIgnored(int status, String error, String message, String email)
+			throws InterruptedException {
+
+        long teachersBefore = teacherRepository.count();
+        JsonNode healthBefore = createTeacherCircuitBreakerHealthDetails()
+        	    .required("details").required(CIRCUIT_BREAKER_NAME).required("details");
+
+        CreateTeacherRequest request = new CreateTeacherRequest(
+        		"Nome", "Cognome", email, "password", serviceUtil.getServiceAddress());
+
+        // Corpo HttpErrorInfo come lo produce il GlobalControllerExceptionHandler di Auth Service.
+        mockAuthServer.enqueue(new MockResponse()
+        		.setResponseCode(status)
+        		.addHeader("Content-Type", APPLICATION_JSON)
+        		.setBody("""
+        				{"path":"/api/sync-signup","status":%d,"error":"%s","message":"%s"}
+        				""".formatted(status, error, message)));
+
+        client.post()
+                .uri(createTeacherUrl)
+                .header("Authorization", "Bearer " + adminJWT)
+                .contentType(APPLICATION_JSON)
+                .accept(APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isEqualTo(status)
+                .expectBody()
+                .jsonPath("$.message").isEqualTo(message);
+
+        JsonNode healthAfter = createTeacherCircuitBreakerHealthDetails()
+        		.required("details").required(CIRCUIT_BREAKER_NAME).required("details");
+        assertThat(healthAfter.required("failedCalls").intValue())
+                .as("failedCalls in circuit breaker health")
+                .isEqualTo(healthBefore.required("failedCalls").intValue());
+        assertThat(healthAfter.required("bufferedCalls").intValue())
+                .as("bufferedCalls in circuit breaker health")
+                .isEqualTo(healthBefore.required("bufferedCalls").intValue());
+
+        assertThat(teacherRepository.count()).isEqualTo(teachersBefore);
+        assertThat(teacherRepository.existsByEmail(email)).isFalse();
+        assertThat(mockAuthServer.takeRequest(5, TimeUnit.SECONDS)).isNotNull();
+	}
 
     private JsonNode createTeacherCircuitBreakerHealthDetails() {
         

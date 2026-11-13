@@ -9,6 +9,7 @@ spring:
       - classpath:config/cloud/spring-cloud-stream.yml
       - classpath:config/cloud/spring-config-client-disable.yml
       - classpath:config/cloud/spring-eureka-client-disable.yml
+      - classpath:config/cloud/spring-circuit-breaker.yml
 
       # db
       - classpath:config/db/init-sql.yml
